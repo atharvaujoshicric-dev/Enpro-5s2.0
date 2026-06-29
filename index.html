@@ -3,1464 +3,2386 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Enpro Training Management</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/bcryptjs/2.4.3/bcrypt.min.js"></script>
+<title>Enpro — Training Management</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-/* =========================================================
+/* ═══════════════════════════════════════════════
    DESIGN TOKENS
-   ========================================================= */
+═══════════════════════════════════════════════ */
 :root {
   --red:        #C8102E;
-  --red-dark:   #9B0C22;
-  --red-light:  #FDEAED;
-  --white:      #FFFFFF;
+  --red-dark:   #9B0B22;
+  --red-light:  #F5D0D7;
+  --red-ghost:  #FEF2F4;
   --black:      #111111;
-  --gray-50:    #F9F9F9;
+  --gray-900:   #1A1A1A;
+  --gray-700:   #444444;
+  --gray-500:   #777777;
+  --gray-300:   #CCCCCC;
   --gray-100:   #F2F2F2;
-  --gray-200:   #E5E5E5;
-  --gray-400:   #9E9E9E;
-  --gray-600:   #5C5C5C;
-  --success:    #1A7F4B;
-  --success-bg: #E6F4ED;
+  --white:      #FFFFFF;
+  --success:    #1A7A4A;
+  --success-bg: #E8F5EE;
   --warn:       #B45309;
   --warn-bg:    #FEF3C7;
-  --danger:     #C8102E;
-  --danger-bg:  #FDEAED;
   --info:       #1D4ED8;
   --info-bg:    #EFF6FF;
 
   --bg:         var(--white);
-  --bg-surface: var(--gray-50);
-  --bg-card:    var(--white);
-  --border:     var(--gray-200);
+  --bg2:        var(--gray-100);
+  --bg3:        #E8E8E8;
+  --surface:    var(--white);
+  --border:     var(--gray-300);
   --text:       var(--black);
-  --text-muted: var(--gray-600);
-  --shadow:     0 1px 4px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.06);
-  --shadow-sm:  0 1px 3px rgba(0,0,0,.08);
-  --radius:     10px;
-  --radius-sm:  6px;
-  --font:       'Segoe UI', system-ui, -apple-system, sans-serif;
-}
+  --text-muted: var(--gray-500);
+  --sidebar-bg: var(--black);
+  --sidebar-text: var(--white);
+  --sidebar-active: var(--red);
+  --sidebar-hover:  #2A2A2A;
 
+  --radius:     8px;
+  --radius-lg:  12px;
+  --shadow:     0 1px 3px rgba(0,0,0,.10), 0 1px 2px rgba(0,0,0,.06);
+  --shadow-md:  0 4px 6px rgba(0,0,0,.07), 0 2px 4px rgba(0,0,0,.06);
+  --shadow-lg:  0 10px 25px rgba(0,0,0,.12);
+
+  --font-body:  'Inter', system-ui, sans-serif;
+  --font-mono:  'JetBrains Mono', monospace;
+}
 [data-theme="dark"] {
   --bg:         #0F0F0F;
-  --bg-surface: #1A1A1A;
-  --bg-card:    #1F1F1F;
-  --border:     #2E2E2E;
+  --bg2:        #1A1A1A;
+  --bg3:        #252525;
+  --surface:    #1E1E1E;
+  --border:     #333333;
   --text:       #F0F0F0;
-  --text-muted: #888;
-  --shadow:     0 1px 4px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.2);
-  --red-light:  #2A0A10;
+  --text-muted: #888888;
+  --sidebar-bg: #090909;
+  --sidebar-hover: #1F1F1F;
+  --red-ghost:  #2A0A10;
+  --red-light:  #3D1019;
+  --success-bg: #0D2B1A;
+  --warn-bg:    #2A1F05;
+  --info-bg:    #0C1A3A;
+  --shadow:     0 1px 3px rgba(0,0,0,.4);
+  --shadow-md:  0 4px 6px rgba(0,0,0,.4);
+  --shadow-lg:  0 10px 25px rgba(0,0,0,.5);
 }
 
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { font-size: 16px; }
-body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; transition: background .2s, color .2s; }
-a { color: var(--red); text-decoration: none; }
-img { max-width: 100%; }
-button { font-family: var(--font); cursor: pointer; border: none; outline: none; }
-input, textarea, select { font-family: var(--font); }
+/* ═══════════════════════════════════════════════
+   RESET & BASE
+═══════════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:16px}
+body{font-family:var(--font-body);background:var(--bg);color:var(--text);line-height:1.5;min-height:100vh;transition:background .2s,color .2s}
+a{color:var(--red);text-decoration:none}
+img{max-width:100%;display:block}
+input,select,textarea,button{font-family:inherit;font-size:1rem}
+button{cursor:pointer}
+ul{list-style:none}
+hr{border:none;border-top:1px solid var(--border);margin:1rem 0}
 
-/* =========================================================
+/* ═══════════════════════════════════════════════
    LAYOUT
-   ========================================================= */
-#app { display: flex; min-height: 100vh; }
+═══════════════════════════════════════════════ */
+#app{display:flex;min-height:100vh}
+#sidebar{
+  width:240px;min-width:240px;background:var(--sidebar-bg);
+  display:flex;flex-direction:column;
+  position:fixed;top:0;left:0;bottom:0;z-index:100;
+  transition:transform .25s ease,width .25s;overflow:hidden
+}
+#sidebar.collapsed{width:60px;min-width:60px}
+#main-wrap{margin-left:240px;flex:1;display:flex;flex-direction:column;min-height:100vh;transition:margin-left .25s}
+#sidebar.collapsed ~ #main-wrap{margin-left:60px}
 
-/* Sidebar */
-#sidebar {
-  width: 240px; min-height: 100vh; background: var(--bg-card);
-  border-right: 1px solid var(--border); display: flex; flex-direction: column;
-  position: fixed; top: 0; left: 0; z-index: 200; transition: transform .25s;
+#topbar{
+  height:56px;background:var(--surface);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 1.25rem;gap:1rem;position:sticky;top:0;z-index:90;
+  box-shadow:var(--shadow)
 }
-#sidebar.hidden { transform: translateX(-100%); }
-#sidebar-logo {
-  padding: 20px 20px 16px; border-bottom: 1px solid var(--border);
-  display: flex; align-items: center; gap: 10px;
-}
-#sidebar-logo .logo-mark {
-  width: 36px; height: 36px; border-radius: 8px; background: var(--red);
-  display: flex; align-items: center; justify-content: center;
-  color: white; font-weight: 800; font-size: 15px; flex-shrink: 0;
-}
-#sidebar-logo .logo-text { font-size: 13px; font-weight: 700; line-height: 1.3; }
-#sidebar-logo .logo-text span { display: block; color: var(--text-muted); font-weight: 400; font-size: 11px; }
-#sidebar-nav { flex: 1; overflow-y: auto; padding: 12px 0; }
-.nav-section { padding: 4px 12px 2px; font-size: 10px; font-weight: 700; letter-spacing: .08em; color: var(--text-muted); text-transform: uppercase; margin-top: 8px; }
-.nav-item {
-  display: flex; align-items: center; gap: 10px; padding: 9px 16px;
-  font-size: 13.5px; color: var(--text); border-radius: var(--radius-sm);
-  margin: 1px 8px; cursor: pointer; transition: background .15s, color .15s;
-}
-.nav-item:hover { background: var(--gray-100); }
-.nav-item.active { background: var(--red-light); color: var(--red); font-weight: 600; }
-[data-theme="dark"] .nav-item:hover { background: #2a2a2a; }
-[data-theme="dark"] .nav-item.active { background: #2A0A10; }
-.nav-item .nav-icon { width: 18px; text-align: center; flex-shrink: 0; }
-#sidebar-footer { padding: 12px; border-top: 1px solid var(--border); }
-.user-chip {
-  display: flex; align-items: center; gap: 10px; padding: 8px 10px;
-  border-radius: var(--radius-sm); background: var(--bg-surface);
-}
-.user-avatar {
-  width: 32px; height: 32px; border-radius: 50%; background: var(--red);
-  color: white; display: flex; align-items: center; justify-content: center;
-  font-size: 13px; font-weight: 700; flex-shrink: 0;
-}
-.user-chip-info { flex: 1; min-width: 0; }
-.user-chip-name { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.user-chip-role { font-size: 11px; color: var(--text-muted); }
+#page-content{padding:1.5rem;flex:1}
 
-/* Overlay */
-#overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 150; }
-#overlay.show { display: block; }
+/* ═══════════════════════════════════════════════
+   SIDEBAR
+═══════════════════════════════════════════════ */
+.sb-logo{
+  display:flex;align-items:center;gap:.75rem;
+  padding:1rem 1rem .75rem;border-bottom:1px solid rgba(255,255,255,.08)
+}
+.sb-logo-mark{
+  width:34px;height:34px;background:var(--red);border-radius:6px;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0
+}
+.sb-logo-mark svg{width:20px;height:20px;fill:white}
+.sb-logo-text{color:white;font-weight:700;font-size:.95rem;letter-spacing:.02em;white-space:nowrap}
+.sb-logo-sub{color:rgba(255,255,255,.45);font-size:.7rem;white-space:nowrap}
 
-/* Main content */
-#main {
-  flex: 1; margin-left: 240px; min-height: 100vh;
-  display: flex; flex-direction: column;
+.sb-nav{flex:1;overflow-y:auto;padding:.5rem 0}
+.sb-section-label{
+  color:rgba(255,255,255,.3);font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;
+  padding:.75rem 1rem .25rem;white-space:nowrap;overflow:hidden
 }
-@media (max-width: 768px) {
-  #main { margin-left: 0; }
-  #sidebar { transform: translateX(-100%); }
-  #sidebar.open { transform: translateX(0); }
+.sb-item{
+  display:flex;align-items:center;gap:.75rem;
+  padding:.55rem 1rem;color:rgba(255,255,255,.65);
+  cursor:pointer;transition:background .15s,color .15s;white-space:nowrap;overflow:hidden;
+  border-left:3px solid transparent
+}
+.sb-item:hover{background:var(--sidebar-hover);color:white}
+.sb-item.active{background:rgba(200,16,46,.18);color:white;border-left-color:var(--red)}
+.sb-item svg{width:18px;height:18px;flex-shrink:0;fill:currentColor}
+.sb-item-label{font-size:.875rem;font-weight:500;transition:opacity .15s}
+#sidebar.collapsed .sb-item-label,
+#sidebar.collapsed .sb-section-label,
+#sidebar.collapsed .sb-logo-text,
+#sidebar.collapsed .sb-logo-sub{opacity:0;pointer-events:none}
+
+.sb-footer{padding:.75rem;border-top:1px solid rgba(255,255,255,.08)}
+.sb-user{
+  display:flex;align-items:center;gap:.6rem;padding:.4rem .25rem;
+  color:rgba(255,255,255,.75);cursor:pointer
+}
+.sb-avatar{
+  width:30px;height:30px;border-radius:50%;background:var(--red);
+  display:flex;align-items:center;justify-content:center;
+  font-size:.75rem;font-weight:700;color:white;flex-shrink:0
+}
+.sb-user-info{overflow:hidden}
+.sb-user-name{font-size:.8rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sb-user-role{font-size:.68rem;color:rgba(255,255,255,.4)}
+
+/* ═══════════════════════════════════════════════
+   TOPBAR
+═══════════════════════════════════════════════ */
+#topbar-toggle{background:none;border:none;color:var(--text-muted);display:flex;align-items:center;padding:.25rem}
+#topbar-toggle svg{width:20px;height:20px;fill:currentColor}
+#topbar-title{font-size:1rem;font-weight:600;flex:1}
+.topbar-actions{display:flex;align-items:center;gap:.5rem}
+.theme-toggle{
+  background:none;border:1px solid var(--border);border-radius:6px;
+  padding:.3rem .5rem;color:var(--text-muted);display:flex;align-items:center;gap:.3rem;
+  font-size:.78rem;transition:border-color .15s
+}
+.theme-toggle:hover{border-color:var(--red);color:var(--red)}
+.theme-toggle svg{width:14px;height:14px;fill:currentColor}
+
+/* ═══════════════════════════════════════════════
+   PAGE VIEWS (SPA routing)
+═══════════════════════════════════════════════ */
+.view{display:none}
+.view.active{display:block}
+
+/* ═══════════════════════════════════════════════
+   AUTH SCREEN
+═══════════════════════════════════════════════ */
+#auth-screen{
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  background:var(--bg);padding:1.5rem
+}
+.auth-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+  padding:2.5rem;width:100%;max-width:400px;box-shadow:var(--shadow-lg)
+}
+.auth-brand{display:flex;align-items:center;gap:.75rem;margin-bottom:2rem}
+.auth-brand-mark{
+  width:42px;height:42px;background:var(--red);border-radius:8px;
+  display:flex;align-items:center;justify-content:center
+}
+.auth-brand-mark svg{width:24px;height:24px;fill:white}
+.auth-brand-text{font-size:1.1rem;font-weight:700}
+.auth-brand-sub{font-size:.75rem;color:var(--text-muted)}
+.auth-title{font-size:1.3rem;font-weight:700;margin-bottom:.25rem}
+.auth-sub{font-size:.875rem;color:var(--text-muted);margin-bottom:1.75rem}
+.auth-notice{
+  background:var(--warn-bg);border:1px solid var(--warn);color:var(--warn);
+  border-radius:var(--radius);padding:.75rem 1rem;font-size:.8rem;margin-bottom:1.25rem;
+  display:none
+}
+.auth-notice.show{display:block}
+
+/* ═══════════════════════════════════════════════
+   FORM ELEMENTS
+═══════════════════════════════════════════════ */
+.form-group{margin-bottom:1.1rem}
+.form-label{display:block;font-size:.8rem;font-weight:600;margin-bottom:.35rem;color:var(--text)}
+.form-label span.req{color:var(--red);margin-left:2px}
+.form-input{
+  width:100%;border:1px solid var(--border);border-radius:var(--radius);
+  padding:.55rem .75rem;background:var(--bg);color:var(--text);
+  transition:border-color .15s,box-shadow .15s;font-size:.9rem
+}
+.form-input:focus{outline:none;border-color:var(--red);box-shadow:0 0 0 3px rgba(200,16,46,.12)}
+.form-input::placeholder{color:var(--text-muted)}
+.form-input[disabled]{opacity:.55;cursor:not-allowed}
+textarea.form-input{resize:vertical;min-height:80px}
+select.form-input{cursor:pointer}
+.form-hint{font-size:.75rem;color:var(--text-muted);margin-top:.3rem}
+.form-error{font-size:.75rem;color:var(--red);margin-top:.3rem;display:none}
+.form-error.show{display:block}
+.form-row{display:grid;gap:1rem;grid-template-columns:1fr 1fr}
+@media(max-width:600px){.form-row{grid-template-columns:1fr}}
+
+/* ═══════════════════════════════════════════════
+   BUTTONS
+═══════════════════════════════════════════════ */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:.4rem;
+  padding:.55rem 1.1rem;border-radius:var(--radius);font-size:.875rem;
+  font-weight:600;border:none;cursor:pointer;transition:all .15s;white-space:nowrap
+}
+.btn svg{width:15px;height:15px;fill:currentColor;flex-shrink:0}
+.btn-primary{background:var(--red);color:white}
+.btn-primary:hover{background:var(--red-dark)}
+.btn-secondary{background:var(--bg2);color:var(--text);border:1px solid var(--border)}
+.btn-secondary:hover{background:var(--bg3)}
+.btn-ghost{background:none;color:var(--text-muted);border:1px solid transparent}
+.btn-ghost:hover{background:var(--bg2);color:var(--text)}
+.btn-danger{background:#FEE2E2;color:#B91C1C;border:1px solid #FCA5A5}
+.btn-danger:hover{background:#FCA5A5}
+.btn-success{background:var(--success-bg);color:var(--success);border:1px solid var(--success)}
+.btn-success:hover{filter:brightness(.95)}
+.btn-sm{padding:.35rem .75rem;font-size:.8rem}
+.btn-lg{padding:.75rem 1.5rem;font-size:.95rem}
+.btn-full{width:100%}
+.btn[disabled]{opacity:.5;cursor:not-allowed;pointer-events:none}
+.btn-icon{padding:.45rem;border-radius:var(--radius)}
+.btn-icon svg{width:16px;height:16px}
+
+/* ═══════════════════════════════════════════════
+   CARDS
+═══════════════════════════════════════════════ */
+.card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius-lg);box-shadow:var(--shadow)
+}
+.card-header{
+  padding:1.1rem 1.25rem .75rem;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;gap:1rem
+}
+.card-title{font-size:.95rem;font-weight:700}
+.card-body{padding:1.25rem}
+.card-footer{padding:.75rem 1.25rem;border-top:1px solid var(--border);background:var(--bg2);border-radius:0 0 var(--radius-lg) var(--radius-lg)}
+
+/* ═══════════════════════════════════════════════
+   PAGE HEADER
+═══════════════════════════════════════════════ */
+.page-header{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap}
+.page-title{font-size:1.4rem;font-weight:800;letter-spacing:-.02em}
+.page-sub{font-size:.85rem;color:var(--text-muted);margin-top:.2rem}
+.page-actions{display:flex;gap:.5rem;flex-wrap:wrap}
+
+/* ═══════════════════════════════════════════════
+   STAT CARDS
+═══════════════════════════════════════════════ */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem;margin-bottom:1.5rem}
+.stat-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);
+  padding:1.1rem 1.25rem;box-shadow:var(--shadow)
+}
+.stat-label{font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:.4rem}
+.stat-value{font-size:2rem;font-weight:800;line-height:1;letter-spacing:-.04em}
+.stat-change{font-size:.75rem;color:var(--text-muted);margin-top:.3rem}
+.stat-card.accent-red .stat-value{color:var(--red)}
+.stat-card.accent-green .stat-value{color:var(--success)}
+.stat-card.accent-warn .stat-value{color:var(--warn)}
+
+/* ═══════════════════════════════════════════════
+   TABLE
+═══════════════════════════════════════════════ */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+thead tr{background:var(--bg2)}
+th{
+  padding:.65rem 1rem;text-align:left;font-size:.72rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);
+  border-bottom:1px solid var(--border);white-space:nowrap
+}
+td{padding:.75rem 1rem;border-bottom:1px solid var(--border);vertical-align:middle}
+tbody tr:hover{background:var(--bg2)}
+tbody tr:last-child td{border-bottom:none}
+.table-actions{display:flex;gap:.3rem;justify-content:flex-end}
+
+/* ═══════════════════════════════════════════════
+   BADGE / STATUS
+═══════════════════════════════════════════════ */
+.badge{
+  display:inline-flex;align-items:center;gap:.3rem;
+  padding:.2rem .6rem;border-radius:100px;font-size:.72rem;font-weight:600
+}
+.badge-red{background:var(--red-light);color:var(--red-dark)}
+.badge-green{background:var(--success-bg);color:var(--success)}
+.badge-warn{background:var(--warn-bg);color:var(--warn)}
+.badge-blue{background:var(--info-bg);color:var(--info)}
+.badge-gray{background:var(--bg3);color:var(--text-muted)}
+
+/* ═══════════════════════════════════════════════
+   MODAL
+═══════════════════════════════════════════════ */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;
+  display:flex;align-items:flex-end;justify-content:center;
+  padding:0;opacity:0;pointer-events:none;transition:opacity .2s
+}
+.modal-overlay.open{opacity:1;pointer-events:all}
+@media(min-width:640px){
+  .modal-overlay{align-items:center;padding:1.5rem}
+}
+.modal{
+  background:var(--surface);border-radius:var(--radius-lg) var(--radius-lg) 0 0;
+  width:100%;max-width:600px;max-height:92vh;overflow-y:auto;
+  transform:translateY(40px);transition:transform .25s ease;
+  box-shadow:var(--shadow-lg)
+}
+@media(min-width:640px){
+  .modal{border-radius:var(--radius-lg);transform:translateY(20px)}
+}
+.modal-overlay.open .modal{transform:translateY(0)}
+.modal-header{
+  padding:1.25rem 1.5rem 1rem;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;
+  background:var(--surface);z-index:1
+}
+.modal-title{font-size:1rem;font-weight:700}
+.modal-close{background:none;border:none;color:var(--text-muted);display:flex;align-items:center;padding:.25rem;border-radius:4px}
+.modal-close:hover{color:var(--text);background:var(--bg2)}
+.modal-close svg{width:18px;height:18px;fill:currentColor}
+.modal-body{padding:1.5rem}
+.modal-footer{padding:1rem 1.5rem;border-top:1px solid var(--border);display:flex;gap:.75rem;justify-content:flex-end;background:var(--bg2);border-radius:0 0 var(--radius-lg) var(--radius-lg)}
+
+/* ═══════════════════════════════════════════════
+   TOAST
+═══════════════════════════════════════════════ */
+#toast-container{
+  position:fixed;bottom:1.5rem;right:1.5rem;z-index:500;
+  display:flex;flex-direction:column;gap:.5rem;pointer-events:none
+}
+.toast{
+  background:var(--gray-900);color:white;
+  padding:.75rem 1.1rem;border-radius:var(--radius);font-size:.85rem;
+  box-shadow:var(--shadow-lg);display:flex;align-items:center;gap:.6rem;
+  max-width:340px;pointer-events:all;
+  animation:toastIn .25s ease;border-left:4px solid var(--red)
+}
+.toast.success{border-left-color:var(--success)}
+.toast.error{border-left-color:#EF4444}
+.toast.info{border-left-color:var(--info)}
+@keyframes toastIn{from{transform:translateX(20px);opacity:0}to{transform:translateX(0);opacity:1}}
+.toast svg{width:16px;height:16px;fill:currentColor;flex-shrink:0}
+
+/* ═══════════════════════════════════════════════
+   EMPTY STATE
+═══════════════════════════════════════════════ */
+.empty-state{
+  text-align:center;padding:3rem 1.5rem;color:var(--text-muted)
+}
+.empty-icon{width:48px;height:48px;margin:0 auto 1rem;opacity:.3;fill:var(--text-muted)}
+.empty-title{font-size:.95rem;font-weight:600;color:var(--text);margin-bottom:.3rem}
+.empty-sub{font-size:.83rem}
+
+/* ═══════════════════════════════════════════════
+   LOADING SPINNER
+═══════════════════════════════════════════════ */
+.spinner{
+  width:22px;height:22px;border:3px solid var(--border);
+  border-top-color:var(--red);border-radius:50%;
+  animation:spin .7s linear infinite;display:inline-block
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-center{display:flex;align-items:center;justify-content:center;padding:3rem}
+
+/* ═══════════════════════════════════════════════
+   TABS
+═══════════════════════════════════════════════ */
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:1.5rem;overflow-x:auto}
+.tab{
+  padding:.65rem 1.1rem;font-size:.85rem;font-weight:600;color:var(--text-muted);
+  cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;
+  white-space:nowrap;transition:color .15s,border-color .15s
+}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--red);border-bottom-color:var(--red)}
+
+/* ═══════════════════════════════════════════════
+   CHECKLIST
+═══════════════════════════════════════════════ */
+.checklist-item{
+  display:flex;align-items:flex-start;gap:.75rem;padding:.75rem 0;
+  border-bottom:1px solid var(--border)
+}
+.checklist-item:last-child{border-bottom:none}
+.check-box{
+  width:20px;height:20px;border:2px solid var(--border);border-radius:4px;
+  flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:all .15s;margin-top:2px
+}
+.check-box.checked{background:var(--success);border-color:var(--success)}
+.check-box svg{width:12px;height:12px;fill:white;display:none}
+.check-box.checked svg{display:block}
+.checklist-item-info{flex:1}
+.checklist-item-title{font-size:.875rem;font-weight:600}
+.checklist-item-desc{font-size:.78rem;color:var(--text-muted);margin-top:.15rem}
+
+/* ═══════════════════════════════════════════════
+   PROGRESS BAR
+═══════════════════════════════════════════════ */
+.progress-bar{background:var(--bg3);border-radius:100px;overflow:hidden;height:6px}
+.progress-fill{height:100%;background:var(--red);border-radius:100px;transition:width .3s ease}
+.progress-fill.green{background:var(--success)}
+.progress-label{display:flex;justify-content:space-between;font-size:.75rem;color:var(--text-muted);margin-bottom:.3rem}
+
+/* ═══════════════════════════════════════════════
+   SEARCH BAR
+═══════════════════════════════════════════════ */
+.search-wrap{position:relative;flex:1;max-width:320px}
+.search-wrap svg{position:absolute;left:.65rem;top:50%;transform:translateY(-50%);width:15px;height:15px;fill:var(--text-muted);pointer-events:none}
+.search-input{
+  width:100%;padding:.5rem .75rem .5rem 2.1rem;
+  border:1px solid var(--border);border-radius:var(--radius);
+  background:var(--bg);color:var(--text);font-size:.85rem
+}
+.search-input:focus{outline:none;border-color:var(--red)}
+
+/* ═══════════════════════════════════════════════
+   PERMISSION GRID
+═══════════════════════════════════════════════ */
+.perm-category{margin-bottom:1.25rem}
+.perm-category-title{font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:.6rem}
+.perm-grid{display:flex;flex-wrap:wrap;gap:.5rem}
+.perm-chip{
+  display:flex;align-items:center;gap:.4rem;padding:.3rem .7rem;
+  border:1px solid var(--border);border-radius:100px;font-size:.78rem;cursor:pointer;
+  transition:all .15s;background:var(--bg)
+}
+.perm-chip input{width:14px;height:14px;accent-color:var(--red)}
+.perm-chip.selected{background:var(--red-ghost);border-color:var(--red);color:var(--red)}
+
+/* ═══════════════════════════════════════════════
+   WORKFLOW STEP BUILDER
+═══════════════════════════════════════════════ */
+.step-list{display:flex;flex-direction:column;gap:.5rem}
+.step-row{
+  display:flex;align-items:center;gap:.6rem;padding:.65rem .9rem;
+  background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);
+}
+.step-num{
+  width:24px;height:24px;border-radius:50%;background:var(--red);color:white;
+  font-size:.72rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0
+}
+.step-info{flex:1;min-width:0}
+.step-title{font-size:.85rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.step-meta{font-size:.75rem;color:var(--text-muted)}
+
+/* ═══════════════════════════════════════════════
+   PHOTO UPLOAD
+═══════════════════════════════════════════════ */
+.upload-zone{
+  border:2px dashed var(--border);border-radius:var(--radius-lg);
+  padding:2rem;text-align:center;cursor:pointer;transition:all .2s
+}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--red);background:var(--red-ghost)}
+.upload-zone svg{width:32px;height:32px;fill:var(--text-muted);margin:0 auto .75rem}
+.upload-zone p{font-size:.85rem;color:var(--text-muted)}
+.upload-zone strong{color:var(--red)}
+.upload-previews{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:.5rem;margin-top:.75rem}
+.upload-preview{
+  aspect-ratio:1;border-radius:var(--radius);overflow:hidden;position:relative;
+  background:var(--bg3);border:1px solid var(--border)
+}
+.upload-preview img{width:100%;height:100%;object-fit:cover}
+.upload-preview-remove{
+  position:absolute;top:3px;right:3px;background:rgba(0,0,0,.6);border:none;
+  border-radius:3px;padding:2px;color:white;cursor:pointer;display:flex
+}
+.upload-preview-remove svg{width:12px;height:12px;fill:white}
+
+/* ═══════════════════════════════════════════════
+   MOBILE NAV OVERLAY
+═══════════════════════════════════════════════ */
+#mobile-overlay{
+  display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99
+}
+@media(max-width:768px){
+  #sidebar{transform:translateX(-100%)}
+  #sidebar.mobile-open{transform:translateX(0)}
+  #main-wrap{margin-left:0!important}
+  #mobile-overlay{display:block;opacity:0;pointer-events:none;transition:opacity .25s}
+  #mobile-overlay.show{opacity:1;pointer-events:all}
+  #page-content{padding:1rem}
 }
 
-/* Topbar */
-#topbar {
-  height: 56px; background: var(--bg-card); border-bottom: 1px solid var(--border);
-  display: flex; align-items: center; padding: 0 20px; gap: 12px; position: sticky; top: 0; z-index: 100;
-}
-#menu-toggle { display: none; background: none; padding: 6px; color: var(--text); font-size: 20px; }
-@media (max-width: 768px) { #menu-toggle { display: block; } }
-#topbar-title { font-size: 15px; font-weight: 700; flex: 1; }
-#theme-toggle {
-  width: 34px; height: 34px; border-radius: var(--radius-sm); background: var(--bg-surface);
-  border: 1px solid var(--border); display: flex; align-items: center; justify-content: center;
-  cursor: pointer; font-size: 16px; color: var(--text);
-}
-#logout-btn {
-  padding: 6px 14px; border-radius: var(--radius-sm); background: var(--red-light);
-  color: var(--red); font-size: 13px; font-weight: 600; cursor: pointer;
-  border: 1px solid transparent; transition: background .15s;
-}
-#logout-btn:hover { background: var(--red); color: white; }
-
-/* Page content */
-#page-content { flex: 1; padding: 24px; max-width: 1100px; width: 100%; }
-@media (max-width: 480px) { #page-content { padding: 16px; } }
-
-/* =========================================================
-   LOGIN PAGE
-   ========================================================= */
-#login-page {
-  min-height: 100vh; display: flex; align-items: center; justify-content: center;
-  background: var(--bg); padding: 16px;
-}
-.login-card {
-  background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px;
-  padding: 40px 36px; width: 100%; max-width: 400px; box-shadow: var(--shadow);
-}
-.login-logo { text-align: center; margin-bottom: 28px; }
-.login-logo-mark {
-  width: 56px; height: 56px; border-radius: 14px; background: var(--red);
-  display: inline-flex; align-items: center; justify-content: center;
-  color: white; font-weight: 900; font-size: 22px; margin-bottom: 10px;
-}
-.login-logo h1 { font-size: 20px; font-weight: 800; }
-.login-logo p { font-size: 12.5px; color: var(--text-muted); }
-
-/* =========================================================
-   COMPONENTS
-   ========================================================= */
-/* Cards */
-.card {
-  background: var(--bg-card); border: 1px solid var(--border);
-  border-radius: var(--radius); box-shadow: var(--shadow-sm); overflow: hidden;
-}
-.card-header {
-  padding: 16px 20px; border-bottom: 1px solid var(--border);
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-}
-.card-title { font-size: 14px; font-weight: 700; }
-.card-body { padding: 20px; }
-
-/* Stats grid */
-.stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; margin-bottom: 24px; }
-.stat-card {
-  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
-  padding: 18px 20px; box-shadow: var(--shadow-sm);
-}
-.stat-label { font-size: 11.5px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
-.stat-value { font-size: 28px; font-weight: 800; color: var(--red); line-height: 1; }
-.stat-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
-
-/* Form elements */
-.form-group { margin-bottom: 16px; }
-.form-label { display: block; font-size: 12.5px; font-weight: 600; margin-bottom: 6px; }
-.form-control {
-  width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm);
-  background: var(--bg); color: var(--text); font-size: 14px; transition: border-color .15s;
-}
-.form-control:focus { outline: none; border-color: var(--red); }
-.form-control::placeholder { color: var(--gray-400); }
-.form-hint { font-size: 11.5px; color: var(--text-muted); margin-top: 4px; }
-.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-@media (max-width: 480px) { .form-row { grid-template-columns: 1fr; } }
-
-/* Buttons */
-.btn {
-  display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px;
-  border-radius: var(--radius-sm); font-size: 13.5px; font-weight: 600;
-  cursor: pointer; border: 1px solid transparent; transition: all .15s; white-space: nowrap;
-}
-.btn-sm { padding: 6px 12px; font-size: 12.5px; }
-.btn-primary { background: var(--red); color: white; }
-.btn-primary:hover { background: var(--red-dark); }
-.btn-secondary { background: var(--bg-surface); color: var(--text); border-color: var(--border); }
-.btn-secondary:hover { background: var(--gray-200); }
-.btn-danger { background: var(--danger-bg); color: var(--danger); }
-.btn-danger:hover { background: var(--danger); color: white; }
-.btn-success { background: var(--success-bg); color: var(--success); }
-.btn-success:hover { background: var(--success); color: white; }
-.btn-full { width: 100%; justify-content: center; }
-.btn:disabled { opacity: .5; cursor: not-allowed; }
-
-/* Badges */
-.badge {
-  display: inline-flex; align-items: center; padding: 2px 8px;
-  border-radius: 100px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
-}
-.badge-pending  { background: var(--warn-bg);    color: var(--warn);    }
-.badge-submitted{ background: var(--info-bg);    color: var(--info);    }
-.badge-approved { background: var(--success-bg); color: var(--success); }
-.badge-rejected { background: var(--danger-bg);  color: var(--danger);  }
-.badge-active   { background: var(--success-bg); color: var(--success); }
-.badge-inactive { background: var(--gray-100);   color: var(--gray-600);}
-.badge-reset    { background: var(--warn-bg);    color: var(--warn);    }
-
-/* Table */
-.table-wrap { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
-th { padding: 10px 14px; text-align: left; font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); border-bottom: 1px solid var(--border); white-space: nowrap; }
-td { padding: 12px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
-tr:last-child td { border-bottom: none; }
-tr:hover td { background: var(--bg-surface); }
-
-/* Alerts */
-.alert { padding: 11px 14px; border-radius: var(--radius-sm); font-size: 13px; margin-bottom: 14px; }
-.alert-error   { background: var(--danger-bg);  color: var(--danger);  border: 1px solid #f5c6cb; }
-.alert-success { background: var(--success-bg); color: var(--success); border: 1px solid #b7dfc9; }
-.alert-info    { background: var(--info-bg);    color: var(--info);    border: 1px solid #bfdbfe; }
-.alert-warn    { background: var(--warn-bg);    color: var(--warn);    border: 1px solid #fde68a; }
-
-/* Modal */
-.modal-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 500;
-  display: flex; align-items: center; justify-content: center; padding: 16px;
-}
-.modal {
-  background: var(--bg-card); border-radius: var(--radius); box-shadow: var(--shadow);
-  width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto;
-}
-.modal-header {
-  padding: 16px 20px; border-bottom: 1px solid var(--border);
-  display: flex; align-items: center; justify-content: space-between;
-}
-.modal-title { font-size: 15px; font-weight: 700; }
-.modal-close { background: none; font-size: 20px; color: var(--text-muted); padding: 2px 6px; border-radius: 4px; }
-.modal-close:hover { background: var(--bg-surface); }
-.modal-body { padding: 20px; }
-.modal-footer { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; }
-
-/* Checklist */
-.checklist-item {
-  display: flex; align-items: flex-start; gap: 12px; padding: 12px 0;
-  border-bottom: 1px solid var(--border);
-}
-.checklist-item:last-child { border-bottom: none; }
-.checklist-item input[type="checkbox"] { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--red); flex-shrink: 0; }
-.checklist-item-label { flex: 1; font-size: 14px; }
-.checklist-item-photo { margin-top: 8px; }
-
-/* Page header */
-.page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; gap: 12px; flex-wrap: wrap; }
-.page-title { font-size: 20px; font-weight: 800; }
-.page-subtitle { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
-
-/* Empty state */
-.empty-state { text-align: center; padding: 48px 24px; color: var(--text-muted); }
-.empty-icon { font-size: 40px; margin-bottom: 12px; }
-.empty-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
-.empty-text { font-size: 13px; }
-
-/* Tabs */
-.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
-.tab-btn {
-  padding: 9px 16px; font-size: 13.5px; font-weight: 600; background: none;
-  color: var(--text-muted); border-bottom: 2px solid transparent; margin-bottom: -1px;
-  cursor: pointer; transition: color .15s, border-color .15s;
-}
-.tab-btn.active { color: var(--red); border-bottom-color: var(--red); }
-
-/* Permission grid */
-.perm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
-.perm-item {
-  display: flex; align-items: center; gap: 10px; padding: 10px 12px;
-  border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer;
-}
-.perm-item input[type="checkbox"] { accent-color: var(--red); width: 16px; height: 16px; flex-shrink: 0; }
-.perm-item label { font-size: 13px; cursor: pointer; }
-
-/* Drag handle placeholder for checklist ordering */
-.drag-handle { color: var(--gray-400); cursor: grab; font-size: 16px; padding: 0 4px; }
-
-/* Loading spinner */
-.spinner {
-  width: 20px; height: 20px; border: 2px solid var(--border);
-  border-top-color: var(--red); border-radius: 50%; animation: spin .6s linear infinite; display: inline-block;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* Photo preview */
-.photo-preview { width: 80px; height: 80px; object-fit: cover; border-radius: var(--radius-sm); border: 1px solid var(--border); }
-
-/* Config notice */
-#config-banner {
-  background: var(--warn-bg); border-bottom: 1px solid #fde68a;
-  padding: 10px 20px; font-size: 13px; color: var(--warn); text-align: center; display: none;
-}
-
-/* =========================================================
-   RESPONSIVE UTILITIES
-   ========================================================= */
-.hide-mobile { }
-@media (max-width: 480px) {
-  .hide-mobile { display: none !important; }
-  .card-header { flex-wrap: wrap; }
-}
+/* ═══════════════════════════════════════════════
+   MISC UTILITY
+═══════════════════════════════════════════════ */
+.flex{display:flex}.flex-1{flex:1}.items-center{align-items:center}.gap-2{gap:.5rem}.gap-3{gap:.75rem}.gap-4{gap:1rem}
+.mt-1{margin-top:.25rem}.mt-2{margin-top:.5rem}.mt-3{margin-top:.75rem}.mt-4{margin-top:1rem}.mt-6{margin-top:1.5rem}
+.mb-3{margin-bottom:.75rem}.mb-4{margin-bottom:1rem}
+.text-sm{font-size:.85rem}.text-xs{font-size:.75rem}.text-muted{color:var(--text-muted)}
+.font-bold{font-weight:700}.font-medium{font-weight:500}
+.text-red{color:var(--red)}.text-green{color:var(--success)}
+.truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hidden{display:none!important}
 </style>
 </head>
 <body>
 
-<!-- Config banner shown if Supabase not configured -->
-<div id="config-banner">⚠️ Supabase not configured. Open this file and set <strong>SUPABASE_URL</strong> and <strong>SUPABASE_KEY (anon key)</strong> at the top of the script.</div>
+<!-- ═══════════════════════════════════════════
+     AUTH SCREEN
+════════════════════════════════════════════ -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <div class="auth-brand-mark">
+        <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      </div>
+      <div>
+        <div class="auth-brand-text">Enpro Industries</div>
+        <div class="auth-brand-sub">Training Management System</div>
+      </div>
+    </div>
 
-<!-- LOGIN PAGE -->
-<div id="login-page" style="display:flex;">
-  <div class="login-card">
-    <div class="login-logo">
-      <div class="login-logo-mark">E</div>
-      <h1>Enpro Industries</h1>
-      <p>Training Management System</p>
+    <!-- Login Form -->
+    <div id="auth-login">
+      <div class="auth-title">Sign in</div>
+      <div class="auth-sub">Use your company credentials to continue.</div>
+      <div class="auth-notice" id="auth-notice"></div>
+      <div class="form-group">
+        <label class="form-label">Email <span class="req">*</span></label>
+        <input type="email" class="form-input" id="login-email" placeholder="you@enpro.com" autocomplete="email"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password <span class="req">*</span></label>
+        <input type="password" class="form-input" id="login-password" placeholder="••••••••" autocomplete="current-password"/>
+      </div>
+      <button class="btn btn-primary btn-full btn-lg" id="login-btn" onclick="doLogin()">
+        <svg viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>
+        Sign in
+      </button>
     </div>
-    <div id="login-alert"></div>
-    <div class="form-group">
-      <label class="form-label">Email</label>
-      <input class="form-control" type="email" id="login-email" placeholder="admin@enpro.com" autocomplete="username"/>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Password</label>
-      <input class="form-control" type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"/>
-    </div>
-    <button class="btn btn-primary btn-full" id="login-btn" onclick="handleLogin()">Sign In</button>
-    <div style="margin-top:16px; text-align:center;">
-      <button class="btn btn-secondary btn-sm" onclick="toggleTheme()" style="width:auto;">🌓 Toggle theme</button>
+
+    <!-- Change Password Form -->
+    <div id="auth-change-password" class="hidden">
+      <div class="auth-title">Set your password</div>
+      <div class="auth-sub">Your admin has created your account. Please set a new password to continue.</div>
+      <div class="form-group mt-4">
+        <label class="form-label">New Password <span class="req">*</span></label>
+        <input type="password" class="form-input" id="new-password" placeholder="Min 8 characters"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Confirm Password <span class="req">*</span></label>
+        <input type="password" class="form-input" id="confirm-password" placeholder="Repeat password"/>
+        <div class="form-error" id="pw-match-error">Passwords do not match.</div>
+      </div>
+      <button class="btn btn-primary btn-full btn-lg" onclick="doChangePassword()">Set Password & Continue</button>
     </div>
   </div>
 </div>
 
-<!-- FORCE PASSWORD CHANGE -->
-<div id="password-change-page" style="display:none; min-height:100vh; align-items:center; justify-content:center; background:var(--bg); padding:16px; flex-direction:column;">
-  <div class="login-card">
-    <div class="login-logo">
-      <div class="login-logo-mark">E</div>
-      <h1>Set New Password</h1>
-      <p>You must change your temporary password before continuing.</p>
-    </div>
-    <div id="pwchange-alert"></div>
-    <div class="form-group">
-      <label class="form-label">New Password</label>
-      <input class="form-control" type="password" id="new-password" placeholder="Min 8 characters"/>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Confirm New Password</label>
-      <input class="form-control" type="password" id="confirm-password" placeholder="Repeat password"/>
-    </div>
-    <button class="btn btn-primary btn-full" onclick="handlePasswordChange()">Save & Continue</button>
-  </div>
-</div>
+<!-- ═══════════════════════════════════════════
+     MAIN APP
+════════════════════════════════════════════ -->
+<div id="app" style="display:none">
 
-<!-- MAIN APP -->
-<div id="app-shell" style="display:none;">
-  <div id="overlay" onclick="closeSidebar()"></div>
-
-  <!-- Sidebar -->
-  <div id="sidebar">
-    <div id="sidebar-logo">
-      <div class="logo-mark">E</div>
-      <div class="logo-text">Enpro Industries<span>Training System</span></div>
+  <!-- SIDEBAR -->
+  <aside id="sidebar">
+    <div class="sb-logo">
+      <div class="sb-logo-mark">
+        <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      </div>
+      <div>
+        <div class="sb-logo-text">Enpro</div>
+        <div class="sb-logo-sub">Training System</div>
+      </div>
     </div>
-    <nav id="sidebar-nav">
-      <!-- Rendered by JS based on permissions -->
+
+    <nav class="sb-nav" id="sidebar-nav">
+      <!-- items injected by JS based on permissions -->
     </nav>
-    <div id="sidebar-footer">
-      <div class="user-chip">
-        <div class="user-avatar" id="sidebar-avatar">?</div>
-        <div class="user-chip-info">
-          <div class="user-chip-name" id="sidebar-name">—</div>
-          <div class="user-chip-role" id="sidebar-role">—</div>
+
+    <div class="sb-footer">
+      <div class="sb-user" onclick="showView('profile')">
+        <div class="sb-avatar" id="sb-avatar">A</div>
+        <div class="sb-user-info">
+          <div class="sb-user-name" id="sb-user-name">User</div>
+          <div class="sb-user-role" id="sb-user-role">Role</div>
         </div>
       </div>
     </div>
-  </div>
+  </aside>
 
-  <!-- Main -->
-  <div id="main">
-    <div id="topbar">
-      <button id="menu-toggle" onclick="toggleSidebar()">☰</button>
+  <!-- MOBILE OVERLAY -->
+  <div id="mobile-overlay" onclick="closeMobileSidebar()"></div>
+
+  <!-- MAIN WRAPPER -->
+  <div id="main-wrap">
+    <header id="topbar">
+      <button id="topbar-toggle" onclick="toggleSidebar()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
       <div id="topbar-title">Dashboard</div>
-      <button id="theme-toggle" onclick="toggleTheme()">🌓</button>
-      <button id="logout-btn" onclick="handleLogout()">Sign out</button>
+      <div class="topbar-actions">
+        <button class="theme-toggle" onclick="toggleTheme()">
+          <svg id="theme-icon-light" viewBox="0 0 24 24"><path d="M12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.65 0-3 1.35-3 3s1.35 3 3 3 3-1.35 3-3-1.35-3-3-3zm1-6V1h-2v2h2zm0 18v-2h-2v2h2zM5.64 6.35 4.22 4.93 2.81 6.34l1.41 1.42 1.42-1.41zM19.78 20.49l-1.41-1.42-1.42 1.41 1.41 1.42 1.42-1.41zM1 13h2v-2H1v2zm20 0h2v-2h-2v2zM6.34 19.78 4.93 18.36l-1.41 1.41 1.41 1.42 1.41-1.41zM18.36 4.22l1.41 1.41 1.42-1.41-1.42-1.42-1.41 1.42z"/></svg>
+          <svg id="theme-icon-dark" viewBox="0 0 24 24" style="display:none"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+          <span id="theme-label">Dark</span>
+        </button>
+        <button class="btn btn-ghost btn-sm" onclick="doLogout()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+          Sign out
+        </button>
+      </div>
+    </header>
+
+    <main id="page-content">
+
+      <!-- ── DASHBOARD ── -->
+      <div class="view" id="view-dashboard">
+        <div class="page-header">
+          <div>
+            <div class="page-title">Dashboard</div>
+            <div class="page-sub">Overview of training activity</div>
+          </div>
+        </div>
+        <div class="stats-grid" id="dashboard-stats"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;flex-wrap:wrap" id="dashboard-grid">
+          <div class="card" id="dash-my-trainings">
+            <div class="card-header"><div class="card-title">My Pending Trainings</div><a href="#" onclick="showView('my-trainings')" class="btn btn-ghost btn-sm">View all</a></div>
+            <div class="card-body" id="dash-my-list"><div class="loading-center"><div class="spinner"></div></div></div>
+          </div>
+          <div class="card" id="dash-recent-activity">
+            <div class="card-header"><div class="card-title">Recent Completions</div></div>
+            <div class="card-body" id="dash-recent-list"><div class="loading-center"><div class="spinner"></div></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── MY TRAININGS ── -->
+      <div class="view" id="view-my-trainings">
+        <div class="page-header">
+          <div><div class="page-title">My Trainings</div><div class="page-sub">Trainings assigned to you</div></div>
+        </div>
+        <div class="tabs">
+          <div class="tab active" onclick="filterMyTrainings('all',this)">All</div>
+          <div class="tab" onclick="filterMyTrainings('assigned',this)">To Do</div>
+          <div class="tab" onclick="filterMyTrainings('in_progress',this)">In Progress</div>
+          <div class="tab" onclick="filterMyTrainings('pending_approval',this)">Pending Approval</div>
+          <div class="tab" onclick="filterMyTrainings('completed',this)">Completed</div>
+        </div>
+        <div id="my-trainings-list"><div class="loading-center"><div class="spinner"></div></div></div>
+      </div>
+
+      <!-- ── TRAINING DETAIL / EXECUTION ── -->
+      <div class="view" id="view-training-execute">
+        <div class="page-header">
+          <div>
+            <button class="btn btn-ghost btn-sm mb-3" onclick="history.back(); showView('my-trainings')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+              Back
+            </button>
+            <div class="page-title" id="execute-title">Training</div>
+            <div class="page-sub" id="execute-sub"></div>
+          </div>
+          <div id="execute-status-badge"></div>
+        </div>
+        <div id="execute-body"></div>
+      </div>
+
+      <!-- ── TRAININGS LIBRARY (Admin/Permitted) ── -->
+      <div class="view" id="view-trainings">
+        <div class="page-header">
+          <div><div class="page-title">Training Library</div><div class="page-sub">All trainings in the system</div></div>
+          <div class="page-actions">
+            <div class="search-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              <input class="search-input" placeholder="Search trainings…" oninput="filterTrainings(this.value)" id="training-search"/>
+            </div>
+            <button class="btn btn-primary" id="btn-new-training" onclick="openTrainingModal()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              New Training
+            </button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="table-wrap">
+            <table id="trainings-table">
+              <thead><tr><th>Title</th><th>Category</th><th>Checklist Items</th><th>Status</th><th>Created</th><th></th></tr></thead>
+              <tbody id="trainings-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── WORKFLOWS ── -->
+      <div class="view" id="view-workflows">
+        <div class="page-header">
+          <div><div class="page-title">Workflows</div><div class="page-sub">Multi-step training sequences</div></div>
+          <div class="page-actions">
+            <button class="btn btn-primary" id="btn-new-workflow" onclick="openWorkflowModal()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              New Workflow
+            </button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="table-wrap">
+            <table id="workflows-table">
+              <thead><tr><th>Title</th><th>Type</th><th>Steps</th><th>Status</th><th>Created</th><th></th></tr></thead>
+              <tbody id="workflows-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── USERS ── -->
+      <div class="view" id="view-users">
+        <div class="page-header">
+          <div><div class="page-title">Users</div><div class="page-sub">Manage team members and permissions</div></div>
+          <div class="page-actions">
+            <div class="search-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              <input class="search-input" placeholder="Search users…" oninput="filterUsers(this.value)"/>
+            </div>
+            <button class="btn btn-primary" id="btn-new-user" onclick="openUserModal()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              Add User
+            </button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="table-wrap">
+            <table id="users-table">
+              <thead><tr><th>Employee</th><th>Department</th><th>Reports To</th><th>Status</th><th>Joined</th><th></th></tr></thead>
+              <tbody id="users-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── DEPARTMENTS ── -->
+      <div class="view" id="view-departments">
+        <div class="page-header">
+          <div><div class="page-title">Departments</div><div class="page-sub">Organisational structure</div></div>
+          <div class="page-actions">
+            <button class="btn btn-primary" onclick="openDeptModal()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              New Department
+            </button>
+          </div>
+        </div>
+        <div id="departments-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1rem"></div>
+      </div>
+
+      <!-- ── ASSIGN TRAINING ── -->
+      <div class="view" id="view-assign">
+        <div class="page-header">
+          <div><div class="page-title">Assignments</div><div class="page-sub">Assign trainings or workflows to employees</div></div>
+          <div class="page-actions">
+            <button class="btn btn-primary" onclick="openAssignModal('training')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Assign Training
+            </button>
+            <button class="btn btn-secondary" onclick="openAssignModal('workflow')">
+              Assign Workflow
+            </button>
+          </div>
+        </div>
+        <div class="tabs">
+          <div class="tab active" onclick="filterAssignments('all',this)">All</div>
+          <div class="tab" onclick="filterAssignments('assigned',this)">Assigned</div>
+          <div class="tab" onclick="filterAssignments('in_progress',this)">In Progress</div>
+          <div class="tab" onclick="filterAssignments('pending_approval',this)">Pending Approval</div>
+          <div class="tab" onclick="filterAssignments('completed',this)">Completed</div>
+        </div>
+        <div class="card">
+          <div class="table-wrap">
+            <table id="assign-table">
+              <thead><tr><th>Employee</th><th>Training / Workflow</th><th>Assigned By</th><th>Due</th><th>Progress</th><th>Status</th><th></th></tr></thead>
+              <tbody id="assign-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── APPROVALS ── -->
+      <div class="view" id="view-approvals">
+        <div class="page-header">
+          <div><div class="page-title">Approvals</div><div class="page-sub">Review and approve training completions</div></div>
+        </div>
+        <div id="approvals-list"><div class="loading-center"><div class="spinner"></div></div></div>
+      </div>
+
+      <!-- ── REPORTS ── -->
+      <div class="view" id="view-reports">
+        <div class="page-header">
+          <div><div class="page-title">Reports</div><div class="page-sub">Training analytics and progress</div></div>
+          <div class="page-actions">
+            <button class="btn btn-secondary" onclick="exportCSV()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+              Export CSV
+            </button>
+          </div>
+        </div>
+        <div class="stats-grid" id="report-stats"></div>
+        <div style="display:grid;gap:1rem">
+          <div class="card">
+            <div class="card-header"><div class="card-title">Department Completion Rates</div></div>
+            <div class="card-body" id="dept-report-body"><div class="loading-center"><div class="spinner"></div></div></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">All Assignment Records</div></div>
+            <div class="table-wrap">
+              <table><thead><tr><th>Employee</th><th>Training</th><th>Department</th><th>Status</th><th>Completed</th></tr></thead>
+              <tbody id="report-tbody"></tbody></table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── PROFILE ── -->
+      <div class="view" id="view-profile">
+        <div class="page-header">
+          <div><div class="page-title">My Profile</div><div class="page-sub">Your account details</div></div>
+        </div>
+        <div class="card" style="max-width:560px">
+          <div class="card-body" id="profile-body"></div>
+        </div>
+      </div>
+
+      <!-- ── SETTINGS ── -->
+      <div class="view" id="view-settings">
+        <div class="page-header">
+          <div><div class="page-title">Settings</div><div class="page-sub">System configuration</div></div>
+        </div>
+        <div class="card" style="max-width:520px">
+          <div class="card-header"><div class="card-title">Notification Settings</div></div>
+          <div class="card-body" id="notif-settings-body"></div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     MODALS
+════════════════════════════════════════════ -->
+
+<!-- Training Modal -->
+<div class="modal-overlay" id="modal-training">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-training-title">New Training</div>
+      <button class="modal-close" onclick="closeModal('modal-training')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
     </div>
-    <div id="page-content">
-      <!-- Pages rendered here -->
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Title <span class="req">*</span></label>
+          <input class="form-input" id="t-title" placeholder="e.g. Fire Safety Basics"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Category</label>
+          <input class="form-input" id="t-category" placeholder="e.g. Safety, 5S, Quality"/>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea class="form-input" id="t-desc" placeholder="What this training covers…"></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Estimated Duration (min)</label>
+          <input type="number" class="form-input" id="t-duration" placeholder="30"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Min Approval Role</label>
+          <input class="form-input" id="t-approval-role" placeholder="e.g. Supervisor, Manager"/>
+        </div>
+      </div>
+      <div class="form-row">
+        <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
+          <input type="checkbox" id="t-req-photo" style="accent-color:var(--red)"/> Requires photo upload
+        </label>
+        <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
+          <input type="checkbox" id="t-req-doc" style="accent-color:var(--red)"/> Requires document upload
+        </label>
+      </div>
+      <hr/>
+      <div class="form-group">
+        <label class="form-label">Checklist Items</label>
+        <div id="checklist-builder" class="step-list"></div>
+        <button class="btn btn-ghost btn-sm mt-2" onclick="addChecklistRow()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add Item
+        </button>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-training')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveTraining()" id="save-training-btn">Save Training</button>
     </div>
   </div>
 </div>
 
-<!-- MODAL CONTAINER -->
-<div id="modal-container"></div>
+<!-- Workflow Modal -->
+<div class="modal-overlay" id="modal-workflow">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-workflow-title">New Workflow</div>
+      <button class="modal-close" onclick="closeModal('modal-workflow')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Title <span class="req">*</span></label>
+        <input class="form-input" id="wf-title" placeholder="e.g. New Employee Onboarding"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea class="form-input" id="wf-desc" placeholder="What this workflow covers…"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Type</label>
+        <select class="form-input" id="wf-type">
+          <option value="sequential">Sequential — steps must be done in order</option>
+          <option value="flexible">Flexible — steps can be done in any order</option>
+        </select>
+      </div>
+      <hr/>
+      <div class="form-group">
+        <label class="form-label">Add Training Steps</label>
+        <select class="form-input" id="wf-training-select">
+          <option value="">— Select a training to add —</option>
+        </select>
+        <button class="btn btn-ghost btn-sm mt-2" onclick="addWorkflowStep()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add Step
+        </button>
+      </div>
+      <div id="wf-steps-list" class="step-list mt-2"></div>
+      <hr/>
+      <div class="form-group">
+        <label class="form-label">Workflow Managers (can assign this workflow)</label>
+        <select class="form-input" id="wf-manager-select">
+          <option value="">— Select a user —</option>
+        </select>
+        <button class="btn btn-ghost btn-sm mt-2" onclick="addWorkflowManager()">Add Manager</button>
+        <div id="wf-managers-list" class="flex gap-2 mt-2" style="flex-wrap:wrap"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-workflow')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveWorkflow()">Save Workflow</button>
+    </div>
+  </div>
+</div>
 
+<!-- User Modal -->
+<div class="modal-overlay" id="modal-user">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-user-title">Add User</div>
+      <button class="modal-close" onclick="closeModal('modal-user')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Full Name <span class="req">*</span></label>
+          <input class="form-input" id="u-name" placeholder="Jane Doe"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email <span class="req">*</span></label>
+          <input type="email" class="form-input" id="u-email" placeholder="jane@enpro.com"/>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Job Title</label>
+          <input class="form-input" id="u-title" placeholder="Operator"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Department</label>
+          <select class="form-input" id="u-dept"></select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Reports To (Manager)</label>
+        <select class="form-input" id="u-manager"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Temporary Password <span class="req">*</span></label>
+        <input type="text" class="form-input" id="u-temp-password" placeholder="Share this securely with the user"/>
+        <div class="form-hint">User will be asked to change this on first login.</div>
+      </div>
+      <div id="user-modal-edit-section" class="hidden">
+        <!-- Edit mode: permissions -->
+        <hr/>
+        <div class="form-group">
+          <label class="form-label">Permissions</label>
+          <div id="perm-grid-container"></div>
+        </div>
+        <div class="form-group">
+          <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
+            <input type="checkbox" id="u-is-admin" style="accent-color:var(--red)"/>
+            <span><strong>Admin</strong> — full access to all features</span>
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-user')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveUser()" id="save-user-btn">Create User</button>
+    </div>
+  </div>
+</div>
+
+<!-- Department Modal -->
+<div class="modal-overlay" id="modal-dept">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-dept-title">New Department</div>
+      <button class="modal-close" onclick="closeModal('modal-dept')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Name <span class="req">*</span></label>
+        <input class="form-input" id="dept-name" placeholder="e.g. Production"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea class="form-input" id="dept-desc" placeholder="Optional description…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-dept')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveDept()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Assign Modal -->
+<div class="modal-overlay" id="modal-assign">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-assign-title">Assign Training</div>
+      <button class="modal-close" onclick="closeModal('modal-assign')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label" id="assign-item-label">Training <span class="req">*</span></label>
+        <select class="form-input" id="assign-item-select"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Assign To <span class="req">*</span></label>
+        <select class="form-input" id="assign-user-select"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Due Date</label>
+        <input type="date" class="form-input" id="assign-due"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <textarea class="form-input" id="assign-notes" placeholder="Optional instructions…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-assign')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveAssignment()">Assign</button>
+    </div>
+  </div>
+</div>
+
+<!-- Approval Modal -->
+<div class="modal-overlay" id="modal-approval">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Review Completion</div>
+      <button class="modal-close" onclick="closeModal('modal-approval')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div class="modal-body" id="approval-modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('modal-approval')">Cancel</button>
+      <button class="btn btn-danger" onclick="rejectAssignment()">Reject</button>
+      <button class="btn btn-success" onclick="approveAssignment()">Approve</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div id="toast-container"></div>
+
+<!-- ═══════════════════════════════════════════
+     JAVASCRIPT
+════════════════════════════════════════════ -->
 <script>
-// =========================================================
-// CONFIGURATION — SET THESE BEFORE DEPLOYING
-// =========================================================
+// ══════════════════════════════════════════
+// CONFIGURATION — UPDATE THESE
+// ══════════════════════════════════════════
 const SUPABASE_URL = 'https://xnppjwzikoouscqlzlxc.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhucHBqd3ppa29vdXNjcWx6bHhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3MjI0MDMsImV4cCI6MjA5ODI5ODQwM30.fgmTrSy9GhEYzXTzUc18PbpNMtT-huxPdTN6YYxTa78'; // service_role key
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhucHBqd3ppa29vdXNjcWx6bHhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3MjI0MDMsImV4cCI6MjA5ODI5ODQwM30.fgmTrSy9GhEYzXTzUc18PbpNMtT-huxPdTN6YYxTa78';
 
-// =========================================================
-// BCRYPT SHIM — normalise across CDN variants
-// =========================================================
-const bcrypt = window.bcrypt || (window.dcodeIO && window.dcodeIO.bcrypt) || window.bcryptjs;
-
-// =========================================================
-// PAGE VISIBILITY HELPERS
-// =========================================================
-function showPage(id, displayType) {
-  ['login-page','password-change-page','app-shell'].forEach(p => {
-    document.getElementById(p).style.display = 'none';
-  });
-  document.getElementById(id).style.display = displayType || 'flex';
-}
-
-// =========================================================
+// ══════════════════════════════════════════
 // INIT
-// =========================================================
-let supabase;
-let currentUser = null;
-let currentPerms = null;
+// ══════════════════════════════════════════
+const { createClient } = window.supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-function initSupabase() {
-  if (SUPABASE_URL === 'YOUR_SUPABASE_URL' || SUPABASE_KEY === 'YOUR_SUPABASE_ANON_KEY') {
-    document.getElementById('config-banner').style.display = 'block';
-    return false;
-  }
-  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-  return true;
+let currentUser = null;      // auth user
+let currentProfile = null;   // profile row
+let currentPermissions = []; // array of permission codes
+let editingId = null;
+let assignType = 'training';
+let approvalTarget = null;
+let wfSteps = [];            // temp workflow steps
+let wfManagers = [];         // temp workflow managers
+let allTrainings = [];
+let allUsers = [];
+let allAssignments = [];
+let allDepts = [];
+let executeAssignment = null;// current training being executed
+
+// ══════════════════════════════════════════
+// SUPABASE HELPERS
+// ══════════════════════════════════════════
+async function q(table) { return sb.from(table); }
+function log(actor, action, table, recordId, oldData, newData) {
+  sb.from('audit_log').insert({ actor_id: actor, action, table_name: table, record_id: recordId, old_data: oldData, new_data: newData }).then(() => {});
 }
 
-window.addEventListener('DOMContentLoaded', () => {
-  initSupabase();
-  const saved = sessionStorage.getItem('enpro_user');
-  if (saved) {
-    const data = JSON.parse(saved);
-    currentUser = data.user;
-    currentPerms = data.perms;
-    showApp();
-  }
-  // Apply saved theme
-  const t = localStorage.getItem('enpro_theme') || 'light';
-  document.documentElement.setAttribute('data-theme', t);
-});
-
-// =========================================================
-// THEME
-// =========================================================
-function toggleTheme() {
-  const current = document.documentElement.getAttribute('data-theme');
-  const next = current === 'dark' ? 'light' : 'dark';
-  document.documentElement.setAttribute('data-theme', next);
-  localStorage.setItem('enpro_theme', next);
-}
-
-// =========================================================
+// ══════════════════════════════════════════
 // AUTH
-// =========================================================
-// Raw REST fetch — bypasses Supabase JS auth interceptor entirely
-async function sbFetch(path, opts = {}) {
-  const url = SUPABASE_URL.replace(/\/$/, '') + '/rest/v1/' + path;
-  const res = await fetch(url, {
-    ...opts,
-    headers: {
-      'apikey': SUPABASE_KEY,
-      'Authorization': 'Bearer ' + SUPABASE_KEY,
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'Prefer': opts.prefer || 'return=representation',
-      ...(opts.headers || {})
-    }
-  });
-  const text = await res.text();
-  let json;
-  try { json = text ? JSON.parse(text) : null; } catch { json = { message: text }; }
-  if (!res.ok) throw new Error(json?.message || json?.error || 'Request failed (' + res.status + ')');
-  return json;
-}
-
-async function handleLogin() {
-  if (!SUPABASE_URL || SUPABASE_URL === 'YOUR_SUPABASE_URL') {
-    showAlert('login-alert', 'Supabase not configured.', 'error'); return;
-  }
+// ══════════════════════════════════════════
+async function doLogin() {
   const email = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-password').value;
-  if (!email || !password) { showAlert('login-alert', 'Please enter email and password.', 'error'); return; }
-
   const btn = document.getElementById('login-btn');
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
-
-  try {
-    // Fetch user + permissions using raw REST — no auth interceptor
-    const rows = await sbFetch(
-      'app_users?email=eq.' + encodeURIComponent(email) +
-      '&select=*,user_permissions(*)&limit=1'
-    );
-
-    const user = rows && rows[0];
-    if (!user) { showAlert('login-alert', 'Invalid email or password.', 'error'); return; }
-    if (user.status === 'inactive') { showAlert('login-alert', 'Your account is inactive. Contact admin.', 'error'); return; }
-
-    const valid = await bcrypt.compare(password, user.password_hash);
-    if (!valid) { showAlert('login-alert', 'Invalid email or password.', 'error'); return; }
-
-    // Log login (best-effort, don't block on failure)
-    sbFetch('audit_log', {
-      method: 'POST', prefer: 'return=minimal',
-      body: JSON.stringify({ actor_id: user.id, action: 'login', target_type: 'user', target_id: user.id })
-    }).catch(() => {});
-
-    currentUser = user;
-    currentPerms = (user.user_permissions && user.user_permissions[0]) || {};
-
-    if (user.status === 'password_reset_required') {
-      sessionStorage.setItem('enpro_pending_user', JSON.stringify({ user, perms: currentPerms }));
-      showPasswordChangePage();
-      return;
-    }
-
-    sessionStorage.setItem('enpro_user', JSON.stringify({ user, perms: currentPerms }));
-    showApp();
-  } catch(e) {
-    showAlert('login-alert', 'Login failed: ' + e.message, 'error');
-  } finally {
-    btn.disabled = false; btn.textContent = 'Sign In';
-  }
+  const notice = document.getElementById('auth-notice');
+  if (!email || !password) { showNotice('Enter your email and password.'); return; }
+  btn.disabled = true; btn.textContent = 'Signing in…';
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  btn.disabled = false; btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg> Sign in';
+  if (error) { showNotice(error.message); return; }
+  notice.classList.remove('show');
+  await bootApp(data.user);
 }
 
-function showPasswordChangePage() {
-  showPage('password-change-page', 'flex');
+function showNotice(msg) {
+  const n = document.getElementById('auth-notice');
+  n.textContent = msg; n.classList.add('show');
 }
 
-async function handlePasswordChange() {
+async function doChangePassword() {
   const np = document.getElementById('new-password').value;
   const cp = document.getElementById('confirm-password').value;
-  if (np.length < 8) { showAlert('pwchange-alert', 'Password must be at least 8 characters.', 'error'); return; }
-  if (np !== cp) { showAlert('pwchange-alert', 'Passwords do not match.', 'error'); return; }
+  const err = document.getElementById('pw-match-error');
+  if (np !== cp) { err.classList.add('show'); return; }
+  err.classList.remove('show');
+  if (np.length < 8) { toast('Password must be at least 8 characters.', 'error'); return; }
+  const { error } = await sb.auth.updateUser({ password: np });
+  if (error) { toast(error.message, 'error'); return; }
+  await sb.from('profiles').update({ must_change_password: false, status: 'active' }).eq('id', currentUser.id);
+  document.getElementById('auth-change-password').classList.add('hidden');
+  document.getElementById('auth-login').classList.remove('hidden');
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  toast('Password updated. Welcome!', 'success');
+}
 
-  const pending = JSON.parse(sessionStorage.getItem('enpro_pending_user'));
-  try {
-    const hash = await bcrypt.hash(np, 10);
-    await sbFetch('app_users?id=eq.' + pending.user.id, {
-      method: 'PATCH', prefer: 'return=minimal',
-      body: JSON.stringify({ password_hash: hash, status: 'active' })
-    });
-    sbFetch('audit_log', {
-      method: 'POST', prefer: 'return=minimal',
-      body: JSON.stringify({ actor_id: pending.user.id, action: 'password_changed', target_type: 'user', target_id: pending.user.id })
-    }).catch(() => {});
+async function doLogout() {
+  await sb.auth.signOut();
+  location.reload();
+}
 
-    pending.user.status = 'active';
-    sessionStorage.removeItem('enpro_pending_user');
-    sessionStorage.setItem('enpro_user', JSON.stringify(pending));
-    currentUser = pending.user;
-    currentPerms = pending.perms;
-    showApp();
-  } catch(e) {
-    showAlert('pwchange-alert', 'Failed to update password: ' + e.message, 'error');
+// ══════════════════════════════════════════
+// BOOT
+// ══════════════════════════════════════════
+async function bootApp(user) {
+  currentUser = user;
+  // Load profile
+  const { data: profile } = await sb.from('profiles').select('*, departments(name)').eq('id', user.id).single();
+  if (!profile) { toast('Profile not found. Contact admin.', 'error'); return; }
+  currentProfile = profile;
+
+  // Check must change password
+  if (profile.must_change_password) {
+    document.getElementById('auth-login').classList.add('hidden');
+    document.getElementById('auth-change-password').classList.remove('hidden');
+    return;
   }
-}
 
-function handleLogout() {
-  sessionStorage.removeItem('enpro_user');
-  currentUser = null; currentPerms = null;
-  showPage('login-page', 'flex');
-}
-
-// =========================================================
-// APP SHELL
-// =========================================================
-function isAdmin() { return currentPerms && Object.values(currentPerms).every(v => v === true || typeof v !== 'boolean') && currentPerms.can_create_users; }
-
-function showApp() {
-  showPage('app-shell', 'flex');
-  document.getElementById('sidebar-name').textContent = currentUser.name;
-  const av = document.getElementById('sidebar-avatar');
-  av.textContent = currentUser.name.charAt(0).toUpperCase();
-  
-  // Role label
-  if (currentPerms.can_create_users && currentPerms.can_manage_departments) {
-    document.getElementById('sidebar-role').textContent = 'Admin';
+  // Load permissions
+  if (profile.is_admin) {
+    // Admin gets all permissions
+    const { data: perms } = await sb.from('permission_definitions').select('code');
+    currentPermissions = perms ? perms.map(p => p.code) : [];
   } else {
-    document.getElementById('sidebar-role').textContent = 'User';
+    const { data: perms } = await sb.from('user_permissions').select('permission').eq('profile_id', user.id);
+    currentPermissions = perms ? perms.map(p => p.permission) : [];
   }
+
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+
+  // Sidebar user info
+  const initials = profile.full_name.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase();
+  document.getElementById('sb-avatar').textContent = initials;
+  document.getElementById('sb-user-name').textContent = profile.full_name;
+  document.getElementById('sb-user-role').textContent = profile.is_admin ? 'Administrator' : (profile.job_title || 'Staff');
 
   buildSidebar();
-  navigateTo('dashboard');
+  showView('dashboard');
+  loadDashboard();
 }
+
+// ══════════════════════════════════════════
+// SIDEBAR BUILDER
+// ══════════════════════════════════════════
+const NAV = [
+  { id: 'dashboard', label: 'Dashboard', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6', section: null, always: true },
+  { id: 'my-trainings', label: 'My Trainings', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4', section: null, always: true },
+  { id: 'trainings', label: 'Training Library', icon: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253', section: 'Manage', perm: 'training.view' },
+  { id: 'workflows', label: 'Workflows', icon: 'M4 6h16M4 12h16M4 18h7', section: 'Manage', perm: 'workflow.view' },
+  { id: 'assign', label: 'Assignments', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z', section: 'Manage', perm: 'training.assign' },
+  { id: 'approvals', label: 'Approvals', icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0', section: 'Manage', perm: 'training.approve' },
+  { id: 'users', label: 'Users', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z', section: 'Admin', perm: 'user.view' },
+  { id: 'departments', label: 'Departments', icon: 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4', section: 'Admin', perm: 'department.manage' },
+  { id: 'reports', label: 'Reports', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', section: 'Admin', perm: 'report.view' },
+  { id: 'settings', label: 'Settings', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0', section: 'Admin', admin: true },
+];
 
 function buildSidebar() {
   const nav = document.getElementById('sidebar-nav');
-  const p = currentPerms;
-  let html = '';
-
-  html += `<div class="nav-section">Overview</div>
-    <div class="nav-item" onclick="navigateTo('dashboard')"><span class="nav-icon">📊</span> Dashboard</div>
-    <div class="nav-item" onclick="navigateTo('my-trainings')"><span class="nav-icon">📋</span> My Trainings</div>`;
-
-  if (p.can_assign_trainings || p.can_approve_completions) {
-    html += `<div class="nav-section">Management</div>`;
-    if (p.can_assign_trainings) html += `<div class="nav-item" onclick="navigateTo('assignments')"><span class="nav-icon">📌</span> Assignments</div>`;
-    if (p.can_approve_completions) html += `<div class="nav-item" onclick="navigateTo('approvals')"><span class="nav-icon">✅</span> Approvals</div>`;
-    if (p.can_view_reports) html += `<div class="nav-item" onclick="navigateTo('reports')"><span class="nav-icon">📈</span> Reports</div>`;
-  }
-
-  if (p.can_create_trainings || p.can_create_workflows) {
-    html += `<div class="nav-section">Content</div>`;
-    if (p.can_create_trainings) html += `<div class="nav-item" onclick="navigateTo('trainings')"><span class="nav-icon">📚</span> Trainings</div>`;
-    if (p.can_create_workflows) html += `<div class="nav-item" onclick="navigateTo('workflows')"><span class="nav-icon">🔄</span> Workflows</div>`;
-  }
-
-  if (p.can_create_users || p.can_manage_departments) {
-    html += `<div class="nav-section">Admin</div>`;
-    if (p.can_create_users) html += `<div class="nav-item" onclick="navigateTo('users')"><span class="nav-icon">👥</span> Users</div>`;
-    if (p.can_manage_departments) html += `<div class="nav-item" onclick="navigateTo('departments')"><span class="nav-icon">🏢</span> Departments</div>`;
-    html += `<div class="nav-item" onclick="navigateTo('audit')"><span class="nav-icon">🔎</span> Audit Log</div>`;
-  }
-
-  nav.innerHTML = html;
-}
-
-function setActiveNav(page) {
-  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(el => {
-    if (el.getAttribute('onclick') && el.getAttribute('onclick').includes(`'${page}'`)) {
-      el.classList.add('active');
+  nav.innerHTML = '';
+  let lastSection = '';
+  NAV.forEach(item => {
+    if (!item.always) {
+      if (item.admin && !currentProfile.is_admin) return;
+      if (item.perm && !hasPermission(item.perm)) return;
     }
+    if (item.section && item.section !== lastSection) {
+      const lbl = document.createElement('div');
+      lbl.className = 'sb-section-label'; lbl.textContent = item.section;
+      nav.appendChild(lbl); lastSection = item.section;
+    }
+    const el = document.createElement('div');
+    el.className = 'sb-item'; el.dataset.view = item.id;
+    el.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="${item.icon}"/></svg><span class="sb-item-label">${item.label}</span>`;
+    el.onclick = () => { showView(item.id); closeMobileSidebar(); };
+    nav.appendChild(el);
   });
 }
 
-function navigateTo(page, params = {}) {
-  setActiveNav(page);
-  document.getElementById('topbar-title').textContent = pageTitles[page] || page;
-  closeSidebar();
-  const content = document.getElementById('page-content');
-  content.innerHTML = '<div style="padding:40px;text-align:center"><span class="spinner"></span></div>';
-  pages[page] ? pages[page](params) : (content.innerHTML = '<p>Page not found.</p>');
+function hasPermission(perm) {
+  if (currentProfile && currentProfile.is_admin) return true;
+  return currentPermissions.includes(perm);
 }
 
-const pageTitles = {
-  dashboard: 'Dashboard', 'my-trainings': 'My Trainings',
-  assignments: 'Assignments', approvals: 'Pending Approvals',
-  reports: 'Reports', trainings: 'Trainings Library',
-  workflows: 'Workflows', users: 'User Management',
-  departments: 'Departments', audit: 'Audit Log'
-};
+// ══════════════════════════════════════════
+// ROUTING
+// ══════════════════════════════════════════
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.sb-item').forEach(i => i.classList.remove('active'));
+  const view = document.getElementById('view-' + id);
+  if (view) view.classList.add('active');
+  const item = document.querySelector(`.sb-item[data-view="${id}"]`);
+  if (item) item.classList.add('active');
+  const titles = { dashboard:'Dashboard','my-trainings':'My Trainings', trainings:'Training Library', workflows:'Workflows', users:'Users', departments:'Departments', assign:'Assignments', approvals:'Approvals', reports:'Reports', profile:'My Profile', settings:'Settings', 'training-execute':'Training' };
+  document.getElementById('topbar-title').textContent = titles[id] || '';
+  // Lazy load
+  if (id === 'trainings') loadTrainings();
+  else if (id === 'workflows') loadWorkflows();
+  else if (id === 'users') loadUsers();
+  else if (id === 'departments') loadDepartments();
+  else if (id === 'assign') loadAssignments();
+  else if (id === 'approvals') loadApprovals();
+  else if (id === 'reports') loadReports();
+  else if (id === 'my-trainings') loadMyTrainings();
+  else if (id === 'profile') loadProfile();
+  else if (id === 'settings') loadSettings();
+}
 
+// ══════════════════════════════════════════
+// SIDEBAR TOGGLE
+// ══════════════════════════════════════════
 function toggleSidebar() {
-  document.getElementById('sidebar').classList.toggle('open');
-  document.getElementById('overlay').classList.toggle('show');
+  const sb_el = document.getElementById('sidebar');
+  if (window.innerWidth <= 768) {
+    sb_el.classList.toggle('mobile-open');
+    document.getElementById('mobile-overlay').classList.toggle('show', sb_el.classList.contains('mobile-open'));
+  } else {
+    sb_el.classList.toggle('collapsed');
+  }
 }
-function closeSidebar() {
-  document.getElementById('sidebar').classList.remove('open');
-  document.getElementById('overlay').classList.remove('show');
+function closeMobileSidebar() {
+  document.getElementById('sidebar').classList.remove('mobile-open');
+  document.getElementById('mobile-overlay').classList.remove('show');
 }
 
-// =========================================================
-// PAGES
-// =========================================================
-const pages = {};
+// ══════════════════════════════════════════
+// THEME
+// ══════════════════════════════════════════
+function toggleTheme() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  document.documentElement.setAttribute('data-theme', isDark ? 'light' : 'dark');
+  document.getElementById('theme-label').textContent = isDark ? 'Dark' : 'Light';
+  document.getElementById('theme-icon-light').style.display = isDark ? 'block' : 'none';
+  document.getElementById('theme-icon-dark').style.display = isDark ? 'none' : 'block';
+  localStorage.setItem('enpro-theme', isDark ? 'light' : 'dark');
+}
+(function(){
+  const saved = localStorage.getItem('enpro-theme') || 'light';
+  document.documentElement.setAttribute('data-theme', saved);
+  if (saved === 'dark') {
+    document.getElementById('theme-label').textContent = 'Light';
+    document.getElementById('theme-icon-light').style.display = 'none';
+    document.getElementById('theme-icon-dark').style.display = 'block';
+  }
+})();
 
-// --- DASHBOARD ---
-pages.dashboard = async () => {
-  const el = document.getElementById('page-content');
-  try {
-    const [
-      { count: totalUsers },
-      { count: totalTrainings },
-      { count: pending },
-      { count: submitted },
-      { count: approved }
-    ] = await Promise.all([
-      supabase.from('app_users').select('*', { count: 'exact', head: true }),
-      supabase.from('trainings').select('*', { count: 'exact', head: true }),
-      supabase.from('training_assignments').select('*', { count: 'exact', head: true }).eq('status','pending'),
-      supabase.from('training_assignments').select('*', { count: 'exact', head: true }).eq('status','submitted'),
-      supabase.from('training_assignments').select('*', { count: 'exact', head: true }).eq('status','approved')
-    ]);
+// ══════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════
+function toast(msg, type='default') {
+  const icons = { success:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>', error:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>', info:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' };
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `${icons[type]||icons.info}<span>${msg}</span>`;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => { el.style.opacity='0'; el.style.transform='translateX(20px)'; setTimeout(() => el.remove(), 300); }, 3500);
+}
 
-    const myPending = await supabase.from('training_assignments').select('*, trainings(title)').eq('assigned_to', currentUser.id).in('status', ['pending','submitted']).order('created_at', { ascending: false }).limit(5);
+// ══════════════════════════════════════════
+// MODAL
+// ══════════════════════════════════════════
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
+});
 
-    el.innerHTML = `
-      <div class="page-header"><div><div class="page-title">Welcome, ${currentUser.name} 👋</div><div class="page-subtitle">Here's an overview of the training system.</div></div></div>
-      <div class="stats-grid">
-        <div class="stat-card"><div class="stat-label">Total Users</div><div class="stat-value">${totalUsers||0}</div></div>
-        <div class="stat-card"><div class="stat-label">Trainings</div><div class="stat-value">${totalTrainings||0}</div></div>
-        <div class="stat-card"><div class="stat-label">Pending</div><div class="stat-value">${pending||0}</div><div class="stat-sub">Awaiting action</div></div>
-        <div class="stat-card"><div class="stat-label">Submitted</div><div class="stat-value">${submitted||0}</div><div class="stat-sub">Awaiting approval</div></div>
-        <div class="stat-card"><div class="stat-label">Approved</div><div class="stat-value">${approved||0}</div><div class="stat-sub">Completed</div></div>
-      </div>
-      <div class="card">
-        <div class="card-header"><span class="card-title">My Open Trainings</span><button class="btn btn-sm btn-secondary" onclick="navigateTo('my-trainings')">View all</button></div>
-        <div class="card-body" style="padding:0">
-          ${myPending.data && myPending.data.length ? `
-            <div class="table-wrap"><table><thead><tr><th>Training</th><th>Status</th><th>Assigned</th></tr></thead><tbody>
-            ${myPending.data.map(a => `<tr><td>${a.trainings?.title||'—'}</td><td>${badge(a.status)}</td><td>${fmtDate(a.created_at)}</td></tr>`).join('')}
-            </tbody></table></div>` : `<div class="empty-state"><div class="empty-icon">🎉</div><div class="empty-title">All caught up!</div><div class="empty-text">No pending trainings assigned to you.</div></div>`}
+// ══════════════════════════════════════════
+// DASHBOARD
+// ══════════════════════════════════════════
+async function loadDashboard() {
+  // Stats
+  const [{ count: totalAssign }, { count: myPending }, { count: myCompleted }, { count: awaitApproval }] = await Promise.all([
+    sb.from('training_assignments').select('*', { count: 'exact', head: true }),
+    sb.from('training_assignments').select('*', { count: 'exact', head: true }).eq('assigned_to', currentUser.id).in('status', ['assigned','in_progress']),
+    sb.from('training_assignments').select('*', { count: 'exact', head: true }).eq('assigned_to', currentUser.id).eq('status','completed'),
+    sb.from('training_assignments').select('*', { count: 'exact', head: true }).eq('status','pending_approval'),
+  ]);
+  document.getElementById('dashboard-stats').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Total Assignments</div><div class="stat-value">${totalAssign||0}</div></div>
+    <div class="stat-card accent-red"><div class="stat-label">My Pending</div><div class="stat-value">${myPending||0}</div></div>
+    <div class="stat-card accent-green"><div class="stat-label">My Completed</div><div class="stat-value">${myCompleted||0}</div></div>
+    <div class="stat-card accent-warn"><div class="stat-label">Awaiting Approval</div><div class="stat-value">${awaitApproval||0}</div></div>
+  `;
+  // My pending list
+  const { data: mine } = await sb.from('training_assignments').select('*, trainings(title,category)').eq('assigned_to', currentUser.id).in('status',['assigned','in_progress']).order('created_at',{ascending:false}).limit(5);
+  const myList = document.getElementById('dash-my-list');
+  if (!mine || mine.length === 0) {
+    myList.innerHTML = '<div class="empty-state"><div class="empty-title">All caught up!</div><div class="empty-sub">No pending trainings.</div></div>';
+  } else {
+    myList.innerHTML = mine.map(a => `
+      <div class="checklist-item" style="cursor:pointer" onclick="openExecute('${a.id}')">
+        <div class="checklist-item-info">
+          <div class="checklist-item-title">${a.trainings?.title||'—'}</div>
+          <div class="checklist-item-desc">${a.trainings?.category||''} · ${statusBadge(a.status)}</div>
         </div>
-      </div>`;
-  } catch(e) { el.innerHTML = `<div class="alert alert-error">Failed to load dashboard: ${e.message}</div>`; }
-};
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;color:var(--text-muted)"><path d="M9 18l6-6-6-6"/></svg>
+      </div>`).join('');
+  }
+  // Recent completions
+  const { data: recent } = await sb.from('training_assignments').select('*, trainings(title), profiles!training_assignments_assigned_to_fkey(full_name)').eq('status','completed').order('completed_at',{ascending:false}).limit(6);
+  const recList = document.getElementById('dash-recent-list');
+  if (!recent || recent.length === 0) {
+    recList.innerHTML = '<div class="empty-state"><div class="empty-title">No completions yet</div></div>';
+  } else {
+    recList.innerHTML = recent.map(a => `
+      <div class="checklist-item">
+        <div class="sb-avatar" style="width:28px;height:28px;font-size:.7rem;flex-shrink:0">${(a.profiles?.full_name||'?').split(' ').map(n=>n[0]).join('').slice(0,2)}</div>
+        <div class="checklist-item-info">
+          <div class="checklist-item-title">${a.profiles?.full_name||'—'}</div>
+          <div class="checklist-item-desc">${a.trainings?.title||'—'} · ${fmtDate(a.completed_at)}</div>
+        </div>
+        <span class="badge badge-green">Done</span>
+      </div>`).join('');
+  }
+}
 
-// --- MY TRAININGS ---
-pages['my-trainings'] = async () => {
-  const el = document.getElementById('page-content');
-  try {
-    const { data, error } = await supabase
-      .from('training_assignments')
-      .select('*, trainings(title, description), workflows(title)')
-      .eq('assigned_to', currentUser.id)
-      .order('created_at', { ascending: false });
-    if (error) throw error;
+// ══════════════════════════════════════════
+// MY TRAININGS
+// ══════════════════════════════════════════
+let myTrainingsFilter = 'all';
+async function loadMyTrainings() {
+  const el = document.getElementById('my-trainings-list');
+  el.innerHTML = '<div class="loading-center"><div class="spinner"></div></div>';
+  let query = sb.from('training_assignments').select('*, trainings(title,category,estimated_duration,requires_photo,requires_document), profiles!training_assignments_assigned_by_fkey(full_name)').eq('assigned_to', currentUser.id).order('created_at',{ascending:false});
+  if (myTrainingsFilter !== 'all') query = query.eq('status', myTrainingsFilter);
+  const { data, error } = await query;
+  if (error) { el.innerHTML = `<div class="empty-state"><div class="empty-title">Error loading trainings</div><div class="empty-sub">${error.message}</div></div>`; return; }
+  if (!data || data.length === 0) {
+    el.innerHTML = '<div class="empty-state"><svg class="empty-icon" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg><div class="empty-title">No trainings here</div><div class="empty-sub">Trainings assigned to you will appear here.</div></div>';
+    return;
+  }
+  el.innerHTML = `<div style="display:grid;gap:.75rem">${data.map(a => `
+    <div class="card" style="cursor:pointer" onclick="openExecute('${a.id}')">
+      <div class="card-body" style="display:flex;gap:1rem;align-items:flex-start">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.3rem">
+            <strong style="font-size:.95rem">${a.trainings?.title||'—'}</strong>
+            ${statusBadge(a.status)}
+          </div>
+          <div class="text-sm text-muted">${a.trainings?.category||''} ${a.trainings?.estimated_duration ? '· ~'+a.trainings.estimated_duration+' min':''}</div>
+          <div class="text-xs text-muted mt-1">Assigned by ${a.profiles?.full_name||'—'} ${a.due_date ? '· Due '+fmtDate(a.due_date) : ''}</div>
+        </div>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;flex-shrink:0;color:var(--text-muted)"><path d="M9 18l6-6-6-6"/></svg>
+      </div>
+    </div>`).join('')}</div>`;
+}
+function filterMyTrainings(status, el) {
+  myTrainingsFilter = status;
+  document.querySelectorAll('#view-my-trainings .tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  loadMyTrainings();
+}
 
-    const tabs = ['all','pending','submitted','approved','rejected'];
-    let activeTab = 'all';
+// ══════════════════════════════════════════
+// TRAINING EXECUTE
+// ══════════════════════════════════════════
+async function openExecute(assignmentId) {
+  const { data: assignment } = await sb.from('training_assignments')
+    .select('*, trainings(*, training_checklist_items(*))')
+    .eq('id', assignmentId).single();
+  if (!assignment) { toast('Could not load training.', 'error'); return; }
+  executeAssignment = assignment;
+  const t = assignment.trainings;
+  document.getElementById('execute-title').textContent = t.title;
+  document.getElementById('execute-sub').textContent = `${t.category||''} ${t.estimated_duration ? '· ~'+t.estimated_duration+' min' : ''}`;
+  document.getElementById('execute-status-badge').innerHTML = statusBadge(assignment.status);
 
-    function render(tab) {
-      activeTab = tab;
-      const filtered = tab === 'all' ? data : data.filter(a => a.status === tab);
-      const rows = filtered.length ? filtered.map(a => `
-        <tr>
-          <td><strong>${a.trainings?.title||'—'}</strong>${a.workflows ? `<br><span style="font-size:12px;color:var(--text-muted)">Workflow: ${a.workflows.title}</span>` : ''}</td>
-          <td>${badge(a.status)}</td>
-          <td>${a.due_date ? fmtDate(a.due_date) : '—'}</td>
-          <td>${fmtDate(a.created_at)}</td>
-          <td><button class="btn btn-sm btn-secondary" onclick="openAssignment('${a.id}')">Open</button></td>
-        </tr>`).join('') : `<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">No trainings</div></div></td></tr>`;
+  // Load checklist progress
+  const { data: progress } = await sb.from('assignment_checklist_progress').select('*').eq('assignment_id', assignmentId);
+  const progressMap = {};
+  (progress||[]).forEach(p => { progressMap[p.checklist_item_id] = p; });
 
-      document.getElementById('my-trainings-body').innerHTML = rows;
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
-    }
+  const items = t.training_checklist_items || [];
+  const completed = items.filter(i => progressMap[i.id]?.is_completed).length;
+  const pct = items.length ? Math.round(100 * completed / items.length) : 0;
+  const canEdit = ['assigned','in_progress'].includes(assignment.status);
+  const isCompleted = assignment.status === 'completed';
 
-    el.innerHTML = `
-      <div class="page-header"><div class="page-title">My Trainings</div></div>
-      <div class="tabs">${tabs.map(t => `<button class="tab-btn${t==='all'?' active':''}" data-tab="${t}" onclick="myTrainingsTab('${t}')">${t.charAt(0).toUpperCase()+t.slice(1)}</button>`).join('')}</div>
-      <div class="card"><div class="table-wrap"><table>
-        <thead><tr><th>Training</th><th>Status</th><th>Due</th><th>Assigned</th><th></th></tr></thead>
-        <tbody id="my-trainings-body"></tbody>
-      </table></div></div>`;
+  let html = '';
+  if (t.description) html += `<div class="card mb-4"><div class="card-body text-sm">${t.description}</div></div>`;
 
-    window.myTrainingsTab = render;
-    render('all');
-  } catch(e) { el.innerHTML = `<div class="alert alert-error">${e.message}</div>`; }
-};
-
-// --- OPEN ASSIGNMENT (checklist) ---
-async function openAssignment(id) {
-  const { data: assignment, error } = await supabase
-    .from('training_assignments')
-    .select('*, trainings(title, description, training_checklist_items(*))')
-    .eq('id', id).single();
-  if (error) { showToast('Failed to load assignment', 'error'); return; }
-
-  const items = assignment.trainings?.training_checklist_items || [];
-  const { data: responses } = await supabase.from('assignment_checklist_responses').select('*').eq('assignment_id', id);
-  const respMap = {};
-  (responses||[]).forEach(r => { respMap[r.checklist_item_id] = r; });
-
-  const canEdit = assignment.assigned_to === currentUser.id && ['pending','rejected'].includes(assignment.status);
-  const canApprove = currentPerms.can_approve_completions && assignment.status === 'submitted';
-
-  const checklistHtml = items.sort((a,b)=>a.order_index-b.order_index).map(item => {
-    const resp = respMap[item.id] || {};
-    return `<div class="checklist-item" id="ci-${item.id}">
-      <input type="checkbox" id="chk-${item.id}" ${resp.is_checked?'checked':''} ${canEdit?'':'disabled'} onchange="saveChecklistItem('${id}','${item.id}')"/>
-      <div class="checklist-item-label">
-        <div>${item.description}${item.requires_photo?'<span style="color:var(--red);margin-left:4px;">*photo required</span>':''}</div>
-        ${resp.photo_url ? `<img src="${resp.photo_url}" class="photo-preview" style="margin-top:6px"/>` : ''}
-        ${canEdit && item.requires_photo ? `
-          <div class="checklist-item-photo" style="margin-top:6px">
-            <input type="file" accept="image/*" capture="environment" id="photo-${item.id}" style="display:none" onchange="uploadChecklistPhoto('${id}','${item.id}')"/>
-            <button class="btn btn-sm btn-secondary" onclick="document.getElementById('photo-${item.id}').click()">📷 ${resp.photo_url?'Change photo':'Attach photo'}</button>
-          </div>` : ''}
-        ${canEdit ? `<textarea class="form-control" style="margin-top:6px;font-size:12px;" rows="1" placeholder="Notes (optional)" id="note-${item.id}" onblur="saveChecklistItem('${id}','${item.id}')">${resp.notes||''}</textarea>` : (resp.notes ? `<div style="font-size:12px;color:var(--text-muted);margin-top:4px">${resp.notes}</div>` : '')}
+  if (items.length) {
+    html += `<div class="card mb-4">
+      <div class="card-header">
+        <div class="card-title">Checklist</div>
+        <div class="text-sm text-muted">${completed} / ${items.length}</div>
+      </div>
+      <div class="card-body" style="padding-top:.5rem">
+        <div class="progress-bar mb-4"><div class="progress-fill ${pct===100?'green':''}" style="width:${pct}%"></div></div>
+        ${items.sort((a,b)=>a.sort_order-b.sort_order).map(item => `
+          <div class="checklist-item">
+            <div class="check-box ${progressMap[item.id]?.is_completed?'checked':''}" onclick="${canEdit?`toggleCheck('${assignmentId}','${item.id}',this)`:''}" style="${canEdit?'cursor:pointer':'cursor:default'}">
+              <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <div class="checklist-item-info">
+              <div class="checklist-item-title">${item.title}${item.is_required?' <span class="text-red">*</span>':''}</div>
+              ${item.description?`<div class="checklist-item-desc">${item.description}</div>`:''}
+            </div>
+          </div>`).join('')}
       </div>
     </div>`;
-  }).join('');
+  }
 
-  const approverSection = canApprove ? `
-    <div style="margin-top:16px">
-      <div class="form-group"><label class="form-label">Remarks (optional)</label>
-        <textarea class="form-control" id="approval-remarks" rows="2" placeholder="Add remarks..."></textarea></div>
-      <div style="display:flex;gap:10px">
-        <button class="btn btn-success" onclick="approveAssignment('${id}')">✅ Approve</button>
-        <button class="btn btn-danger" onclick="rejectAssignment('${id}')">❌ Reject</button>
+  if ((t.requires_photo || t.requires_document) && canEdit) {
+    html += `<div class="card mb-4">
+      <div class="card-header"><div class="card-title">Upload Evidence</div></div>
+      <div class="card-body">
+        <div class="upload-zone" onclick="document.getElementById('file-upload').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleFileDrop(event)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+          <p>Drag & drop or <strong>choose files</strong></p>
+          <p style="font-size:.75rem;margin-top:.3rem">${t.requires_photo?'Photos (JPG, PNG, HEIC)':''} ${t.requires_document?'· Documents (PDF)':''}</p>
+        </div>
+        <input type="file" id="file-upload" style="display:none" multiple accept="${t.requires_photo?'image/*,':''} ${t.requires_document?'.pdf':''}" onchange="handleFileSelect(this)"/>
+        <div class="upload-previews" id="upload-previews"></div>
       </div>
-    </div>` : '';
+    </div>`;
+  }
 
-  const submitBtn = canEdit ? `<div style="margin-top:20px"><button class="btn btn-primary" onclick="submitAssignment('${id}')">Submit for Approval</button></div>` : '';
+  if (canEdit) {
+    const allRequired = items.filter(i => i.is_required);
+    const allRequiredDone = allRequired.every(i => progressMap[i.id]?.is_completed);
+    html += `<div style="display:flex;gap:.75rem;justify-content:flex-end">
+      <button class="btn btn-secondary" onclick="showView('my-trainings')">Back</button>
+      <button class="btn btn-primary" id="submit-btn" onclick="submitForApproval('${assignmentId}')" ${!allRequiredDone && allRequired.length > 0 ? 'disabled title="Complete all required items first"' : ''}>
+        Submit for Approval
+      </button>
+    </div>`;
+  } else if (assignment.status === 'pending_approval') {
+    html += `<div class="card" style="border-color:var(--warn)"><div class="card-body" style="color:var(--warn);font-size:.875rem;text-align:center">⏳ Submitted — awaiting manager approval.</div></div>`;
+  } else if (isCompleted) {
+    html += `<div class="card" style="border-color:var(--success)"><div class="card-body" style="color:var(--success);font-size:.875rem;text-align:center">✅ Training completed on ${fmtDate(assignment.completed_at)}.</div></div>`;
+  } else if (assignment.status === 'rejected') {
+    html += `<div class="card" style="border-color:var(--red)"><div class="card-body" style="color:var(--red);font-size:.875rem">❌ Rejected${assignment.rejection_note ? ': '+assignment.rejection_note : ''}. Please redo and resubmit.</div></div>
+    <div style="text-align:right;margin-top:1rem"><button class="btn btn-primary" onclick="resubmit('${assignmentId}')">Re-submit</button></div>`;
+  }
 
-  showModal(`Training: ${assignment.trainings?.title}`, `
-    <div style="margin-bottom:12px">${badge(assignment.status)}</div>
-    ${assignment.trainings?.description ? `<p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">${assignment.trainings.description}</p>` : ''}
-    ${items.length ? checklistHtml : '<p style="color:var(--text-muted)">No checklist items defined.</p>'}
-    ${submitBtn}
-    ${approverSection}
-    ${assignment.approver_remarks ? `<div class="alert alert-info" style="margin-top:12px"><strong>Approver remarks:</strong> ${assignment.approver_remarks}</div>` : ''}
-  `);
+  document.getElementById('execute-body').innerHTML = html;
+  showView('training-execute');
 }
 
-async function saveChecklistItem(assignmentId, itemId) {
-  const chk = document.getElementById(`chk-${itemId}`);
-  const note = document.getElementById(`note-${itemId}`);
-  await supabase.from('assignment_checklist_responses').upsert({
-    assignment_id: assignmentId, checklist_item_id: itemId,
-    is_checked: chk?.checked||false, notes: note?.value||null, updated_at: new Date().toISOString()
-  }, { onConflict: 'assignment_id,checklist_item_id' });
-}
-
-async function uploadChecklistPhoto(assignmentId, itemId) {
-  const file = document.getElementById(`photo-${itemId}`).files[0];
-  if (!file) return;
-  const ext = file.name.split('.').pop();
-  const path = `${assignmentId}/${itemId}.${ext}`;
-  const { error } = await supabase.storage.from('training-photos').upload(path, file, { upsert: true });
-  if (error) { showToast('Photo upload failed: ' + error.message, 'error'); return; }
-  const { data: { publicUrl } } = supabase.storage.from('training-photos').getPublicUrl(path);
-  await supabase.from('assignment_checklist_responses').upsert({
-    assignment_id: assignmentId, checklist_item_id: itemId,
-    photo_url: publicUrl, updated_at: new Date().toISOString()
-  }, { onConflict: 'assignment_id,checklist_item_id' });
-  showToast('Photo uploaded!', 'success');
-}
-
-async function submitAssignment(id) {
-  const { error } = await supabase.from('training_assignments').update({ status: 'submitted', submitted_at: new Date().toISOString() }).eq('id', id);
-  if (error) { showToast('Failed to submit', 'error'); return; }
-  await supabase.from('audit_log').insert({ actor_id: currentUser.id, action: 'assignment_submitted', target_type: 'assignment', target_id: id });
-  closeModal(); showToast('Submitted for approval!', 'success'); pages['my-trainings']();
-}
-
-async function approveAssignment(id) {
-  const remarks = document.getElementById('approval-remarks')?.value||'';
-  const { error } = await supabase.from('training_assignments').update({ status: 'approved', approved_at: new Date().toISOString(), approved_by: currentUser.id, approver_remarks: remarks }).eq('id', id);
-  if (error) { showToast('Failed to approve', 'error'); return; }
-  await supabase.from('audit_log').insert({ actor_id: currentUser.id, action: 'assignment_approved', target_type: 'assignment', target_id: id });
-  closeModal(); showToast('Training approved!', 'success'); pages.approvals();
-}
-
-async function rejectAssignment(id) {
-  const remarks = document.getElementById('approval-remarks')?.value||'';
-  if (!remarks) { showToast('Please add a remark when rejecting.', 'error'); return; }
-  const { error } = await supabase.from('training_assignments').update({ status: 'rejected', approver_remarks: remarks }).eq('id', id);
-  if (error) { showToast('Failed to reject', 'error'); return; }
-  await supabase.from('audit_log').insert({ actor_id: currentUser.id, action: 'assignment_rejected', target_type: 'assignment', target_id: id });
-  closeModal(); showToast('Training rejected.', 'success'); pages.approvals();
-}
-
-// --- APPROVALS ---
-pages.approvals = async () => {
-  const el = document.getElementById('page-content');
-  try {
-    const { data, error } = await supabase
-      .from('training_assignments')
-      .select('*, trainings(title), app_users!training_assignments_assigned_to_fkey(name, email)')
-      .eq('status', 'submitted')
-      .order('submitted_at', { ascending: true });
-    if (error) throw error;
-
-    el.innerHTML = `
-      <div class="page-header"><div class="page-title">Pending Approvals</div></div>
-      <div class="card"><div class="table-wrap"><table>
-        <thead><tr><th>Employee</th><th>Training</th><th>Submitted</th><th></th></tr></thead>
-        <tbody>${data.length ? data.map(a => `<tr>
-          <td>${a.users?.name||'—'}<br><span style="font-size:11px;color:var(--text-muted)">${a.users?.email||''}</span></td>
-          <td>${a.trainings?.title||'—'}</td>
-          <td>${fmtDate(a.submitted_at)}</td>
-          <td><button class="btn btn-sm btn-primary" onclick="openAssignment('${a.id}')">Review</button></td>
-        </tr>`).join('') : `<tr><td colspan="4"><div class="empty-state"><div class="empty-icon">✅</div><div class="empty-title">No pending approvals</div></div></td></tr>`}</tbody>
-      </table></div></div>`;
-  } catch(e) { el.innerHTML = `<div class="alert alert-error">${e.message}</div>`; }
-};
-
-// --- ASSIGNMENTS ---
-pages.assignments = async () => {
-  const el = document.getElementById('page-content');
-  try {
-    const [trainingsRes, usersRes, workflowsRes] = await Promise.all([
-      supabase.from('trainings').select('id,title').order('title'),
-      supabase.from('app_users').select('id,name,email').eq('status','active').order('name'),
-      supabase.from('workflows').select('id,title').order('title')
-    ]);
-
-    const { data: assignments } = await supabase
-      .from('training_assignments')
-      .select('*, trainings(title), app_users!training_assignments_assigned_to_fkey(name)')
-      .order('created_at', { ascending: false }).limit(50);
-
-    const trainings = trainingsRes.data || [];
-    const users = usersRes.data || [];
-    const workflows = workflowsRes.data || [];
-
-    el.innerHTML = `
-      <div class="page-header"><div class="page-title">Assignments</div><button class="btn btn-primary" onclick="showAssignModal()">+ Assign Training</button></div>
-      <div class="card"><div class="table-wrap"><table>
-        <thead><tr><th>Employee</th><th>Training</th><th>Status</th><th>Due</th><th>Assigned</th></tr></thead>
-        <tbody>${(assignments||[]).map(a => `<tr>
-          <td>${a.users?.name||'—'}</td>
-          <td>${a.trainings?.title||'—'}</td>
-          <td>${badge(a.status)}</td>
-          <td>${a.due_date||'—'}</td>
-          <td>${fmtDate(a.created_at)}</td>
-        </tr>`).join('')}</tbody>
-      </table></div></div>`;
-
-    window.showAssignModal = () => {
-      showModal('Assign Training', `
-        <div class="form-group"><label class="form-label">Employee *</label>
-          <select class="form-control" id="a-user"><option value="">Select employee…</option>${users.map(u=>`<option value="${u.id}">${u.name} (${u.email})</option>`).join('')}</select></div>
-        <div class="form-group"><label class="form-label">Training *</label>
-          <select class="form-control" id="a-training"><option value="">Select training…</option>${trainings.map(t=>`<option value="${t.id}">${t.title}</option>`).join('')}</select></div>
-        <div class="form-group"><label class="form-label">Workflow (optional)</label>
-          <select class="form-control" id="a-workflow"><option value="">Standalone assignment</option>${workflows.map(w=>`<option value="${w.id}">${w.title}</option>`).join('')}</select></div>
-        <div class="form-group"><label class="form-label">Due Date (optional)</label>
-          <input type="date" class="form-control" id="a-due"/></div>
-        <div id="assign-alert"></div>`,
-        [{ label: 'Assign', cls: 'btn-primary', fn: doAssign }]
-      );
-    };
-
-    async function doAssign() {
-      const userId = document.getElementById('a-user').value;
-      const trainingId = document.getElementById('a-training').value;
-      const workflowId = document.getElementById('a-workflow').value || null;
-      const due = document.getElementById('a-due').value || null;
-      if (!userId || !trainingId) { showAlert('assign-alert','Please select employee and training.','error'); return; }
-      const { error } = await supabase.from('training_assignments').insert({
-        assigned_to: userId, training_id: trainingId, workflow_id: workflowId,
-        assigned_by: currentUser.id, due_date: due, status: 'pending'
-      });
-      if (error) { showAlert('assign-alert', error.message, 'error'); return; }
-      await supabase.from('audit_log').insert({ actor_id: currentUser.id, action: 'assignment_created', target_type: 'assignment', details: { to: userId, training: trainingId } });
-      closeModal(); showToast('Training assigned!', 'success'); pages.assignments();
-    }
-  } catch(e) { el.innerHTML = `<div class="alert alert-error">${e.message}</div>`; }
-};
-
-// --- TRAININGS LIBRARY ---
-pages.trainings = async () => {
-  const el = document.getElementById('page-content');
-  try {
-    const { data, error } = await supabase.from('trainings').select('*, training_checklist_items(id)').order('title');
-    if (error) throw error;
-
-    el.innerHTML = `
-      <div class="page-header"><div class="page-title">Trainings Library</div><button class="btn btn-primary" onclick="showCreateTrainingModal()">+ New Training</button></div>
-      <div class="card"><div class="table-wrap"><table>
-        <thead><tr><th>Title</th><th>Checklist Items</th><th>Created</th><th></th></tr></thead>
-        <tbody>${data.length ? data.map(t => `<tr>
-          <td><strong>${t.title}</strong>${t.description?`<br><span style="font-size:12px;color:var(--text-muted)">${t.description}</span>`:''}</td>
-          <td>${t.training_checklist_items?.length||0} items</td>
-          <td>${fmtDate(t.created_at)}</td>
-          <td style="display:flex;gap:6px">
-            <button class="btn btn-sm btn-secondary" onclick="editTraining('${t.id}')">Edit</button>
-            <button class="btn btn-sm btn-danger" onclick="deleteTraining('${t.id}','${t.title}')">Delete</button>
-          </td>
-        </tr>`).join('') : `<tr><td colspan="4"><div class="empty-state"><div class="empty-icon">📚</div><div class="empty-title">No trainings yet</div><div class="empty-text">Create your first training to get started.</div></div></td></tr>`}</tbody>
-      </table></div></div>`;
-
-    window.showCreateTrainingModal = () => openTrainingModal(null);
-    window.editTraining = async (id) => {
-      const { data: t } = await supabase.from('trainings').select('*, training_checklist_items(*)').eq('id', id).single();
-      openTrainingModal(t);
-    };
-    window.deleteTraining = (id, title) => {
-      showModal('Delete Training', `<p>Are you sure you want to delete "<strong>${title}</strong>"? This will also remove all assignments.</p>`,
-        [{ label: 'Delete', cls: 'btn-danger', fn: async () => {
-          await supabase.from('trainings').delete().eq('id', id);
-          await supabase.from('audit_log').insert({ actor_id: currentUser.id, action: 'training_deleted', target_type: 'training', target_id: id });
-          closeModal(); showToast('Training deleted.', 'success'); pages.trainings();
-        }}]);
-    };
-  } catch(e) { el.innerHTML = `<div class="alert alert-error">${e.message}</div>`; }
-};
-
-function openTrainingModal(training) {
-  const items = training?.training_checklist_items?.sort((a,b)=>a.order_index-b.order_index) || [];
-  let checklistHtml = items.map((item, i) => checklistItemRow(item.id, item.description, item.requires_photo, i)).join('');
-
-  showModal(training ? 'Edit Training' : 'New Training', `
-    <div class="form-group"><label class="form-label">Title *</label>
-      <input class="form-control" id="t-title" value="${training?.title||''}"/></div>
-    <div class="form-group"><label class="form-label">Description</label>
-      <textarea class="form-control" id="t-desc" rows="2">${training?.description||''}</textarea></div>
-    <div style="font-weight:700;font-size:13px;margin-bottom:10px">Checklist Items</div>
-    <div id="checklist-editor">${checklistHtml}</div>
-    <button class="btn btn-secondary btn-sm" style="margin-top:8px" onclick="addChecklistRow()">+ Add Item</button>
-    <div id="training-alert" style="margin-top:12px"></div>`,
-    [{ label: training ? 'Save Changes' : 'Create Training', cls: 'btn-primary', fn: () => saveTraining(training?.id) }]
-  );
-}
-
-let _ciCounter = 1000;
-function checklistItemRow(id, desc, requiresPhoto, idx) {
-  const uid = id || `new-${_ciCounter++}`;
-  return `<div class="checklist-item" id="cirow-${uid}" style="align-items:center">
-    <span class="drag-handle">⠿</span>
-    <input class="form-control" style="flex:1;margin-right:8px" value="${desc||''}" id="cidesc-${uid}" placeholder="Checklist item description"/>
-    <label style="font-size:12px;white-space:nowrap;display:flex;align-items:center;gap:4px;margin-right:8px">
-      <input type="checkbox" ${requiresPhoto?'checked':''} id="ciphoto-${uid}"/> Photo
-    </label>
-    <button class="btn btn-sm btn-danger" onclick="document.getElementById('cirow-${uid}').remove()">✕</button>
-  </div>`;
-}
-
-window.addChecklistRow = () => {
-  document.getElementById('checklist-editor').insertAdjacentHTML('beforeend', checklistItemRow(null,'',false,0));
-};
-
-async function saveTraining(existingId) {
-  const title = document.getElementById('t-title').value.trim();
-  if (!title) { showAlert('training-alert','Title is required.','error'); return; }
-  const desc = document.getElementById('t-desc').value.trim();
-
-  let trainingId = existingId;
-  if (existingId) {
-    await supabase.from('trainings').update({ title, description: desc||null }).eq('id', existingId);
+async function toggleCheck(assignmentId, itemId, el) {
+  const isChecked = el.classList.contains('checked');
+  el.classList.toggle('checked', !isChecked);
+  // Upsert progress
+  if (!isChecked) {
+    await sb.from('assignment_checklist_progress').upsert({ assignment_id: assignmentId, checklist_item_id: itemId, is_completed: true, completed_at: new Date().toISOString() }, { onConflict: 'assignment_id,checklist_item_id' });
   } else {
-    const { data, error } = await supabase.from('trainings').insert({ title, description: desc||null, created_by: currentUser.id }).select().single();
-    if (error) { showAlert('training-alert', error.message, 'error'); return; }
+    await sb.from('assignment_checklist_progress').update({ is_completed: false, completed_at: null }).eq('assignment_id', assignmentId).eq('checklist_item_id', itemId);
+  }
+  // Update status to in_progress if not already
+  if (executeAssignment?.status === 'assigned') {
+    await sb.from('training_assignments').update({ status: 'in_progress', started_at: new Date().toISOString() }).eq('id', assignmentId);
+    executeAssignment.status = 'in_progress';
+  }
+  // Refresh submit button state
+  openExecute(assignmentId);
+}
+
+async function submitForApproval(assignmentId) {
+  const { error } = await sb.from('training_assignments').update({ status: 'pending_approval', submitted_at: new Date().toISOString() }).eq('id', assignmentId);
+  if (error) { toast(error.message, 'error'); return; }
+  toast('Submitted for approval!', 'success');
+  log(currentUser.id, 'submit_for_approval', 'training_assignments', assignmentId, null, { status: 'pending_approval' });
+  openExecute(assignmentId);
+}
+
+async function resubmit(assignmentId) {
+  await sb.from('training_assignments').update({ status: 'in_progress', submitted_at: null }).eq('id', assignmentId);
+  openExecute(assignmentId);
+}
+
+function handleFileSelect(input) {
+  const files = Array.from(input.files);
+  files.forEach(f => uploadFile(f));
+}
+function handleFileDrop(e) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag');
+  Array.from(e.dataTransfer.files).forEach(f => uploadFile(f));
+}
+async function uploadFile(file) {
+  if (!executeAssignment) return;
+  const path = `${currentUser.id}/${executeAssignment.id}/${Date.now()}_${file.name}`;
+  const { error } = await sb.storage.from('training-media').upload(path, file);
+  if (error) { toast('Upload failed: ' + error.message, 'error'); return; }
+  await sb.from('assignment_media').insert({
+    assignment_id: executeAssignment.id,
+    media_type: file.type.startsWith('image') ? 'photo' : 'document',
+    file_name: file.name, file_path: path,
+    file_size: file.size, uploaded_by: currentUser.id
+  });
+  // Preview
+  const prev = document.getElementById('upload-previews');
+  if (prev && file.type.startsWith('image')) {
+    const url = URL.createObjectURL(file);
+    const div = document.createElement('div'); div.className = 'upload-preview';
+    div.innerHTML = `<img src="${url}"/>`;
+    prev.appendChild(div);
+  }
+  toast('File uploaded.', 'success');
+}
+
+// ══════════════════════════════════════════
+// TRAINING LIBRARY
+// ══════════════════════════════════════════
+async function loadTrainings() {
+  const tbody = document.getElementById('trainings-tbody');
+  tbody.innerHTML = '<tr><td colspan="6"><div class="loading-center"><div class="spinner"></div></div></td></tr>';
+  const { data, error } = await sb.from('trainings').select('*, training_checklist_items(id)').order('created_at', { ascending: false });
+  if (error) { toast(error.message, 'error'); return; }
+  allTrainings = data || [];
+  renderTrainings(allTrainings);
+}
+
+function renderTrainings(list) {
+  const tbody = document.getElementById('trainings-tbody');
+  if (!list.length) { tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-title">No trainings yet</div><div class="empty-sub">Create your first training to get started.</div></div></td></tr>`; return; }
+  tbody.innerHTML = list.map(t => `
+    <tr>
+      <td><strong>${t.title}</strong>${t.description ? `<div class="text-xs text-muted truncate" style="max-width:200px">${t.description}</div>` : ''}</td>
+      <td>${t.category ? `<span class="badge badge-blue">${t.category}</span>` : '—'}</td>
+      <td>${t.training_checklist_items?.length || 0} items</td>
+      <td>${t.is_active ? '<span class="badge badge-green">Active</span>' : '<span class="badge badge-gray">Inactive</span>'}</td>
+      <td class="text-sm text-muted">${fmtDate(t.created_at)}</td>
+      <td>
+        <div class="table-actions">
+          ${hasPermission('training.assign') ? `<button class="btn btn-secondary btn-sm" onclick="openAssignModal('training','${t.id}')">Assign</button>` : ''}
+          ${hasPermission('training.edit') ? `<button class="btn btn-ghost btn-sm" onclick="editTraining('${t.id}')">Edit</button>` : ''}
+          ${hasPermission('training.delete') ? `<button class="btn btn-danger btn-sm" onclick="deleteTraining('${t.id}')">Delete</button>` : ''}
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+function filterTrainings(q) {
+  const filtered = allTrainings.filter(t => t.title.toLowerCase().includes(q.toLowerCase()) || (t.category||'').toLowerCase().includes(q.toLowerCase()));
+  renderTrainings(filtered);
+}
+
+let checklistRows = [];
+function openTrainingModal(training = null) {
+  editingId = training ? training.id : null;
+  document.getElementById('modal-training-title').textContent = training ? 'Edit Training' : 'New Training';
+  document.getElementById('t-title').value = training?.title || '';
+  document.getElementById('t-category').value = training?.category || '';
+  document.getElementById('t-desc').value = training?.description || '';
+  document.getElementById('t-duration').value = training?.estimated_duration || '';
+  document.getElementById('t-approval-role').value = training?.min_approval_role || '';
+  document.getElementById('t-req-photo').checked = training?.requires_photo || false;
+  document.getElementById('t-req-doc').checked = training?.requires_document || false;
+  checklistRows = [];
+  const builder = document.getElementById('checklist-builder');
+  builder.innerHTML = '';
+  if (training?.training_checklist_items) {
+    training.training_checklist_items.sort((a,b)=>a.sort_order-b.sort_order).forEach(item => addChecklistRow(item));
+  }
+  openModal('modal-training');
+}
+
+async function editTraining(id) {
+  const { data } = await sb.from('trainings').select('*, training_checklist_items(*)').eq('id', id).single();
+  if (data) openTrainingModal(data);
+}
+
+function addChecklistRow(item = null) {
+  const id = item?.id || 'new_' + Date.now();
+  const row = document.createElement('div');
+  row.className = 'step-row'; row.dataset.id = id;
+  row.innerHTML = `
+    <input class="form-input" style="flex:1" placeholder="Checklist item title" value="${item?.title||''}"/>
+    <label style="display:flex;align-items:center;gap:.3rem;font-size:.78rem;flex-shrink:0">
+      <input type="checkbox" style="accent-color:var(--red)" ${item?.is_required!==false?'checked':''}/> Required
+    </label>
+    <button class="btn btn-ghost btn-sm btn-icon" onclick="this.closest('.step-row').remove()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>`;
+  document.getElementById('checklist-builder').appendChild(row);
+}
+
+async function saveTraining() {
+  const title = document.getElementById('t-title').value.trim();
+  if (!title) { toast('Title is required.', 'error'); return; }
+  const payload = {
+    title, category: document.getElementById('t-category').value.trim(),
+    description: document.getElementById('t-desc').value.trim(),
+    estimated_duration: parseInt(document.getElementById('t-duration').value) || null,
+    min_approval_role: document.getElementById('t-approval-role').value.trim(),
+    requires_photo: document.getElementById('t-req-photo').checked,
+    requires_document: document.getElementById('t-req-doc').checked,
+    created_by: currentUser.id
+  };
+  let trainingId = editingId;
+  if (editingId) {
+    const { error } = await sb.from('trainings').update(payload).eq('id', editingId);
+    if (error) { toast(error.message, 'error'); return; }
+  } else {
+    const { data, error } = await sb.from('trainings').insert(payload).select().single();
+    if (error) { toast(error.message, 'error'); return; }
     trainingId = data.id;
   }
-
-  // Rebuild checklist items
-  if (existingId) await supabase.from('training_checklist_items').delete().eq('training_id', trainingId);
-  const rows = document.querySelectorAll('#checklist-editor .checklist-item');
+  // Save checklist items
+  const rows = document.querySelectorAll('#checklist-builder .step-row');
+  if (editingId) await sb.from('training_checklist_items').delete().eq('training_id', trainingId);
   const items = [];
   rows.forEach((row, i) => {
-    const id = row.id.replace('cirow-','');
-    const desc = document.getElementById(`cidesc-${id}`)?.value?.trim();
-    const photo = document.getElementById(`ciphoto-${id}`)?.checked;
-    if (desc) items.push({ training_id: trainingId, description: desc, requires_photo: photo||false, order_index: i });
+    const titleVal = row.querySelector('input[type="text"], input:not([type])').value.trim();
+    const req = row.querySelector('input[type="checkbox"]').checked;
+    if (titleVal) items.push({ training_id: trainingId, title: titleVal, is_required: req, sort_order: i });
   });
-  if (items.length) await supabase.from('training_checklist_items').insert(items);
-
-  await supabase.from('audit_log').insert({ actor_id: currentUser.id, action: existingId ? 'training_updated' : 'training_created', target_type: 'training', target_id: trainingId });
-  closeModal(); showToast(existingId ? 'Training updated!' : 'Training created!', 'success'); pages.trainings();
+  if (items.length) await sb.from('training_checklist_items').insert(items);
+  toast(editingId ? 'Training updated.' : 'Training created.', 'success');
+  log(currentUser.id, editingId ? 'update_training' : 'create_training', 'trainings', trainingId, null, payload);
+  closeModal('modal-training');
+  loadTrainings();
 }
 
-// --- WORKFLOWS ---
-pages.workflows = async () => {
-  const el = document.getElementById('page-content');
-  try {
-    const { data, error } = await supabase.from('workflows').select('*, workflow_trainings(id)').order('title');
-    if (error) throw error;
-
-    el.innerHTML = `
-      <div class="page-header"><div class="page-title">Workflows</div><button class="btn btn-primary" onclick="showCreateWorkflowModal()">+ New Workflow</button></div>
-      <div class="card"><div class="table-wrap"><table>
-        <thead><tr><th>Title</th><th>Type</th><th>Trainings</th><th>Created</th><th></th></tr></thead>
-        <tbody>${data.length ? data.map(w => `<tr>
-          <td><strong>${w.title}</strong>${w.description?`<br><span style="font-size:12px;color:var(--text-muted)">${w.description}</span>`:''}</td>
-          <td><span class="badge ${w.type==='sequential'?'badge-submitted':'badge-approved'}">${w.type}</span></td>
-          <td>${w.workflow_trainings?.length||0}</td>
-          <td>${fmtDate(w.created_at)}</td>
-          <td style="display:flex;gap:6px">
-            <button class="btn btn-sm btn-secondary" onclick="editWorkflow('${w.id}')">Edit</button>
-            <button class="btn btn-sm btn-danger" onclick="deleteWorkflow('${w.id}','${w.title}')">Delete</button>
-          </td>
-        </tr>`).join('') : `<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">🔄</div><div class="empty-title">No workflows yet</div></div></td></tr>`}</tbody>
-      </table></div></div>`;
-
-    window.showCreateWorkflowModal = () => openWorkflowModal(null);
-    window.editWorkflow = async (id) => {
-      const { data: w } = await supabase.from('workflows').select('*, workflow_trainings(*, trainings(title)), workflow_managers(*, users(name))').eq('id', id).single();
-      openWorkflowModal(w);
-    };
-    window.deleteWorkflow = (id, title) => {
-      showModal('Delete Workflow', `<p>Delete "<strong>${title}</strong>"?</p>`,
-        [{ label: 'Delete', cls: 'btn-danger', fn: async () => {
-          await supabase.from('workflows').delete().eq('id', id);
-          closeModal(); showToast('Workflow deleted.', 'success'); pages.workflows();
-        }}]);
-    };
-  } catch(e) { el.innerHTML = `<div class="alert alert-error">${e.message}</div>`; }
-};
-
-async function openWorkflowModal(workflow) {
-  const { data: allTrainings } = await supabase.from('trainings').select('id,title').order('title');
-  const { data: allUsers } = await supabase.from('app_users').select('id,name').eq('status','active').order('name');
-  const wt = workflow?.workflow_trainings?.sort((a,b)=>a.order_index-b.order_index)||[];
-  const wm = workflow?.workflow_managers||[];
-
-  showModal(workflow ? 'Edit Workflow' : 'New Workflow', `
-    <div class="form-group"><label class="form-label">Title *</label><input class="form-control" id="w-title" value="${workflow?.title||''}"/></div>
-    <div class="form-group"><label class="form-label">Description</label><textarea class="form-control" id="w-desc" rows="2">${workflow?.description||''}</textarea></div>
-    <div class="form-group"><label class="form-label">Type</label>
-      <select class="form-control" id="w-type">
-        <option value="sequential" ${workflow?.type==='sequential'?'selected':''}>Sequential (must complete in order)</option>
-        <option value="flexible" ${workflow?.type==='flexible'?'selected':''}>Flexible (any order)</option>
-      </select></div>
-    <div class="form-group"><label class="form-label">Trainings in this workflow</label>
-      <select class="form-control" id="w-trainings" multiple style="height:100px">
-        ${(allTrainings||[]).map(t => `<option value="${t.id}" ${wt.find(x=>x.training_id===t.id)?'selected':''}>${t.title}</option>`).join('')}
-      </select>
-      <div class="form-hint">Hold Ctrl/Cmd to select multiple. Order reflects sequence for sequential workflows.</div></div>
-    <div class="form-group"><label class="form-label">Managers (can manage this workflow)</label>
-      <select class="form-control" id="w-managers" multiple style="height:80px">
-        ${(allUsers||[]).map(u => `<option value="${u.id}" ${wm.find(x=>x.user_id===u.id)?'selected':''}>${u.name}</option>`).join('')}
-      </select></div>
-    <div id="workflow-alert"></div>`,
-    [{ label: workflow ? 'Save Changes' : 'Create Workflow', cls: 'btn-primary', fn: () => saveWorkflow(workflow?.id) }]
-  );
+async function deleteTraining(id) {
+  if (!confirm('Delete this training? This cannot be undone.')) return;
+  const { error } = await sb.from('trainings').delete().eq('id', id);
+  if (error) { toast(error.message, 'error'); return; }
+  toast('Training deleted.', 'success');
+  loadTrainings();
 }
 
-async function saveWorkflow(existingId) {
-  const title = document.getElementById('w-title').value.trim();
-  if (!title) { showAlert('workflow-alert','Title is required.','error'); return; }
-  const desc = document.getElementById('w-desc').value.trim();
-  const type = document.getElementById('w-type').value;
-  const trainingIds = Array.from(document.getElementById('w-trainings').selectedOptions).map(o=>o.value);
-  const managerIds = Array.from(document.getElementById('w-managers').selectedOptions).map(o=>o.value);
+// ══════════════════════════════════════════
+// WORKFLOWS
+// ══════════════════════════════════════════
+async function loadWorkflows() {
+  const tbody = document.getElementById('workflows-tbody');
+  tbody.innerHTML = '<tr><td colspan="6"><div class="loading-center"><div class="spinner"></div></div></td></tr>';
+  const { data, error } = await sb.from('workflows').select('*, workflow_steps(id)').order('created_at', { ascending: false });
+  if (error) { toast(error.message, 'error'); return; }
+  if (!data?.length) { tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-title">No workflows</div><div class="empty-sub">Create a workflow to chain trainings together.</div></div></td></tr>`; return; }
+  tbody.innerHTML = data.map(w => `
+    <tr>
+      <td><strong>${w.title}</strong>${w.description?`<div class="text-xs text-muted">${w.description}</div>`:''}</td>
+      <td><span class="badge ${w.type==='sequential'?'badge-blue':'badge-warn'}">${w.type}</span></td>
+      <td>${w.workflow_steps?.length||0} steps</td>
+      <td>${w.is_active?'<span class="badge badge-green">Active</span>':'<span class="badge badge-gray">Inactive</span>'}</td>
+      <td class="text-sm text-muted">${fmtDate(w.created_at)}</td>
+      <td>
+        <div class="table-actions">
+          ${hasPermission('workflow.assign')?`<button class="btn btn-secondary btn-sm" onclick="openAssignModal('workflow','${w.id}')">Assign</button>`:''}
+          ${hasPermission('workflow.edit')?`<button class="btn btn-ghost btn-sm" onclick="editWorkflow('${w.id}')">Edit</button>`:''}
+          ${hasPermission('workflow.delete')?`<button class="btn btn-danger btn-sm" onclick="deleteWorkflow('${w.id}')">Delete</button>`:''}
+        </div>
+      </td>
+    </tr>`).join('');
+}
 
-  let wid = existingId;
-  if (existingId) {
-    await supabase.from('workflows').update({ title, description: desc||null, type }).eq('id', existingId);
-    await supabase.from('workflow_trainings').delete().eq('workflow_id', existingId);
-    await supabase.from('workflow_managers').delete().eq('workflow_id', existingId);
-  } else {
-    const { data, error } = await supabase.from('workflows').insert({ title, description: desc||null, type, created_by: currentUser.id }).select().single();
-    if (error) { showAlert('workflow-alert', error.message, 'error'); return; }
-    wid = data.id;
+wfSteps = []; wfManagers = [];
+async function openWorkflowModal(wf = null) {
+  editingId = wf ? wf.id : null;
+  wfSteps = []; wfManagers = [];
+  document.getElementById('modal-workflow-title').textContent = wf ? 'Edit Workflow' : 'New Workflow';
+  document.getElementById('wf-title').value = wf?.title||'';
+  document.getElementById('wf-desc').value = wf?.description||'';
+  document.getElementById('wf-type').value = wf?.type||'sequential';
+  // Populate training select
+  if (!allTrainings.length) { const { data } = await sb.from('trainings').select('id,title').eq('is_active',true).order('title'); allTrainings = data||[]; }
+  const tSel = document.getElementById('wf-training-select');
+  tSel.innerHTML = '<option value="">— Select a training to add —</option>' + allTrainings.map(t => `<option value="${t.id}">${t.title}</option>`).join('');
+  // Populate manager select
+  const { data: users } = await sb.from('profiles').select('id,full_name').eq('status','active').order('full_name');
+  const mSel = document.getElementById('wf-manager-select');
+  mSel.innerHTML = '<option value="">— Select a user —</option>' + (users||[]).map(u => `<option value="${u.id}">${u.full_name}</option>`).join('');
+  // Load existing steps if editing
+  document.getElementById('wf-steps-list').innerHTML = '';
+  document.getElementById('wf-managers-list').innerHTML = '';
+  if (wf) {
+    const { data: steps } = await sb.from('workflow_steps').select('*, trainings(title)').eq('workflow_id', wf.id).order('step_number');
+    (steps||[]).forEach(s => { wfSteps.push({id:s.id, training_id:s.training_id, title:s.trainings?.title}); renderWfSteps(); });
+    const { data: managers } = await sb.from('workflow_managers').select('*, profiles(full_name)').eq('workflow_id', wf.id);
+    (managers||[]).forEach(m => { wfManagers.push({id:m.profile_id, name:m.profiles?.full_name}); renderWfManagers(); });
   }
-
-  if (trainingIds.length) await supabase.from('workflow_trainings').insert(trainingIds.map((tid,i) => ({ workflow_id: wid, training_id: tid, order_index: i })));
-  if (managerIds.length) await supabase.from('workflow_managers').insert(managerIds.map(uid => ({ workflow_id: wid, user_id: uid })));
-
-  closeModal(); showToast(existingId ? 'Workflow updated!' : 'Workflow created!', 'success'); pages.workflows();
+  openModal('modal-workflow');
 }
 
-// --- USERS ---
-pages.users = async () => {
-  const el = document.getElementById('page-content');
-  try {
-    const { data, error } = await supabase.from('app_users').select('*, departments(name), user_permissions(*)').order('name');
-    if (error) throw error;
-
-    el.innerHTML = `
-      <div class="page-header"><div class="page-title">User Management</div><button class="btn btn-primary" onclick="showCreateUserModal()">+ New User</button></div>
-      <div class="card"><div class="table-wrap"><table>
-        <thead><tr><th>Name</th><th>Email</th><th>Department</th><th>Status</th><th>Temp Password</th><th></th></tr></thead>
-        <tbody>${data.map(u => `<tr>
-          <td><strong>${u.name}</strong></td>
-          <td>${u.email}</td>
-          <td>${u.departments?.name||'—'}</td>
-          <td>${badge(u.status)}</td>
-          <td id="tpw-${u.id}" style="font-size:12px;color:var(--text-muted)">—</td>
-          <td style="display:flex;gap:4px;flex-wrap:wrap">
-            <button class="btn btn-sm btn-secondary" onclick="editUser('${u.id}')">Edit</button>
-            <button class="btn btn-sm btn-secondary" onclick="editPermissions('${u.id}','${u.name}')">Perms</button>
-            ${u.id !== currentUser.id ? `<button class="btn btn-sm btn-danger" onclick="toggleUserActive('${u.id}','${u.status}')">
-              ${u.status==='inactive'?'Activate':'Deactivate'}</button>` : ''}
-          </td>
-        </tr>`).join('')}</tbody>
-      </table></div></div>`;
-
-    window.showCreateUserModal = () => openUserModal(null, data);
-    window.editUser = (id) => openUserModal(data.find(u=>u.id===id), data);
-    window.toggleUserActive = async (id, status) => {
-      const newStatus = status === 'inactive' ? 'active' : 'inactive';
-      await supabase.from('app_users').update({ status: newStatus }).eq('id', id);
-      pages.users();
-    };
-    window.editPermissions = async (userId, userName) => {
-      const user = data.find(u=>u.id===userId);
-      const p = user?.user_permissions?.[0] || {};
-      const permFields = ['can_create_users','can_manage_departments','can_create_trainings','can_create_workflows','can_assign_trainings','can_approve_completions','can_view_reports','can_manage_notifications'];
-      const labels = { can_create_users:'Create Users', can_manage_departments:'Manage Departments', can_create_trainings:'Create Trainings', can_create_workflows:'Create Workflows', can_assign_trainings:'Assign Trainings', can_approve_completions:'Approve Completions', can_view_reports:'View Reports', can_manage_notifications:'Manage Notifications' };
-      showModal(`Permissions: ${userName}`, `
-        <div class="perm-grid">${permFields.map(f=>`
-          <div class="perm-item">
-            <input type="checkbox" id="perm-${f}" ${p[f]?'checked':''}/>
-            <label for="perm-${f}">${labels[f]}</label>
-          </div>`).join('')}</div>
-        <div id="perm-alert" style="margin-top:12px"></div>`,
-        [{ label: 'Save Permissions', cls: 'btn-primary', fn: async () => {
-          const updates = {};
-          permFields.forEach(f => updates[f] = document.getElementById(`perm-${f}`).checked);
-          updates.granted_by = currentUser.id;
-          const existing = p.id;
-          if (existing) await supabase.from('user_permissions').update(updates).eq('id', existing);
-          else await supabase.from('user_permissions').insert({ user_id: userId, ...updates });
-          await supabase.from('audit_log').insert({ actor_id: currentUser.id, action: 'permission_granted', target_type: 'user', target_id: userId });
-          closeModal(); showToast('Permissions saved!', 'success');
-        }}]
-      );
-    };
-  } catch(e) { el.innerHTML = `<div class="alert alert-error">${e.message}</div>`; }
-};
-
-async function openUserModal(user, allUsers) {
-  const { data: depts } = await supabase.from('departments').select('id,name').order('name');
-  const reportOptions = (allUsers||[]).filter(u=>u.id!==user?.id).map(u=>`<option value="${u.id}" ${user?.reports_to===u.id?'selected':''}>${u.name}</option>`).join('');
-
-  showModal(user ? 'Edit User' : 'New User', `
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Full Name *</label><input class="form-control" id="u-name" value="${user?.name||''}"/></div>
-      <div class="form-group"><label class="form-label">Email *</label><input class="form-control" type="email" id="u-email" value="${user?.email||''}" ${user?'readonly':''}/></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Department</label>
-        <select class="form-control" id="u-dept">
-          <option value="">No department</option>
-          ${(depts||[]).map(d=>`<option value="${d.id}" ${user?.department_id===d.id?'selected':''}>${d.name}</option>`).join('')}
-        </select></div>
-      <div class="form-group"><label class="form-label">Reports To</label>
-        <select class="form-control" id="u-reports">
-          <option value="">Nobody</option>${reportOptions}
-        </select></div>
-    </div>
-    ${!user ? `<div class="alert alert-info">A temporary password will be generated and shown after creation. Share it with the user — they must change it on first login.</div>` : ''}
-    <div id="user-alert"></div>`,
-    [{ label: user ? 'Save Changes' : 'Create User', cls: 'btn-primary', fn: () => saveUser(user?.id) }]
-  );
+async function editWorkflow(id) {
+  const { data } = await sb.from('workflows').select('*').eq('id', id).single();
+  if (data) openWorkflowModal(data);
 }
 
-async function saveUser(existingId) {
+function addWorkflowStep() {
+  const sel = document.getElementById('wf-training-select');
+  const id = sel.value; const title = sel.options[sel.selectedIndex].text;
+  if (!id) { toast('Select a training first.', 'error'); return; }
+  if (wfSteps.find(s => s.training_id === id)) { toast('Already added.', 'error'); return; }
+  wfSteps.push({ training_id: id, title });
+  renderWfSteps();
+}
+
+function renderWfSteps() {
+  document.getElementById('wf-steps-list').innerHTML = wfSteps.map((s,i) => `
+    <div class="step-row">
+      <div class="step-num">${i+1}</div>
+      <div class="step-info"><div class="step-title">${s.title}</div></div>
+      <button class="btn btn-ghost btn-sm btn-icon" onclick="wfSteps.splice(${i},1);renderWfSteps()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>`).join('');
+}
+
+function addWorkflowManager() {
+  const sel = document.getElementById('wf-manager-select');
+  const id = sel.value; const name = sel.options[sel.selectedIndex].text;
+  if (!id) { toast('Select a user first.', 'error'); return; }
+  if (wfManagers.find(m => m.id === id)) return;
+  wfManagers.push({ id, name });
+  renderWfManagers();
+}
+function renderWfManagers() {
+  document.getElementById('wf-managers-list').innerHTML = wfManagers.map((m,i) => `
+    <span class="badge badge-blue" style="cursor:pointer" onclick="wfManagers.splice(${i},1);renderWfManagers()">${m.name} ✕</span>`).join('');
+}
+
+async function saveWorkflow() {
+  const title = document.getElementById('wf-title').value.trim();
+  if (!title) { toast('Title is required.', 'error'); return; }
+  const payload = { title, description: document.getElementById('wf-desc').value.trim(), type: document.getElementById('wf-type').value, created_by: currentUser.id };
+  let wfId = editingId;
+  if (editingId) {
+    await sb.from('workflows').update(payload).eq('id', editingId);
+    await sb.from('workflow_steps').delete().eq('workflow_id', editingId);
+    await sb.from('workflow_managers').delete().eq('workflow_id', editingId);
+  } else {
+    const { data, error } = await sb.from('workflows').insert(payload).select().single();
+    if (error) { toast(error.message, 'error'); return; }
+    wfId = data.id;
+  }
+  if (wfSteps.length) {
+    await sb.from('workflow_steps').insert(wfSteps.map((s,i) => ({ workflow_id: wfId, training_id: s.training_id, step_number: i+1 })));
+  }
+  if (wfManagers.length) {
+    await sb.from('workflow_managers').insert(wfManagers.map(m => ({ workflow_id: wfId, profile_id: m.id })));
+  }
+  toast(editingId ? 'Workflow updated.' : 'Workflow created.', 'success');
+  closeModal('modal-workflow');
+  loadWorkflows();
+}
+
+async function deleteWorkflow(id) {
+  if (!confirm('Delete this workflow?')) return;
+  await sb.from('workflows').delete().eq('id', id);
+  toast('Workflow deleted.', 'success');
+  loadWorkflows();
+}
+
+// ══════════════════════════════════════════
+// USERS
+// ══════════════════════════════════════════
+async function loadUsers() {
+  const tbody = document.getElementById('users-tbody');
+  tbody.innerHTML = '<tr><td colspan="6"><div class="loading-center"><div class="spinner"></div></div></td></tr>';
+  const { data, error } = await sb.from('profiles').select('*, departments(name), manager:reports_to(full_name)').order('created_at', { ascending: false });
+  if (error) { toast(error.message, 'error'); return; }
+  allUsers = data || [];
+  renderUsers(allUsers);
+}
+
+function renderUsers(list) {
+  const tbody = document.getElementById('users-tbody');
+  if (!list.length) { tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-title">No users yet</div></div></td></tr>`; return; }
+  const statusMap = { active:'badge-green', inactive:'badge-gray', pending_password_change:'badge-warn' };
+  tbody.innerHTML = list.map(u => `
+    <tr>
+      <td>
+        <div style="display:flex;align-items:center;gap:.6rem">
+          <div class="sb-avatar" style="width:30px;height:30px;font-size:.72rem">${u.full_name.split(' ').map(n=>n[0]).join('').slice(0,2)}</div>
+          <div>
+            <div class="font-bold text-sm">${u.full_name} ${u.is_admin?'<span class="badge badge-red">Admin</span>':''}</div>
+            <div class="text-xs text-muted">${u.email} · ${u.employee_id||'—'}</div>
+          </div>
+        </div>
+      </td>
+      <td class="text-sm">${u.departments?.name||'—'}</td>
+      <td class="text-sm">${u.manager?.full_name||'—'}</td>
+      <td><span class="badge ${statusMap[u.status]||'badge-gray'}">${u.status?.replace('_',' ')||'—'}</span></td>
+      <td class="text-sm text-muted">${fmtDate(u.created_at)}</td>
+      <td>
+        <div class="table-actions">
+          <button class="btn btn-ghost btn-sm" onclick="editUser('${u.id}')">Edit</button>
+          ${u.id !== currentUser.id ? `<button class="btn btn-danger btn-sm" onclick="toggleUserStatus('${u.id}','${u.status}')">
+            ${u.status==='active'?'Deactivate':'Activate'}
+          </button>` : ''}
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+function filterUsers(q) {
+  const filtered = allUsers.filter(u => u.full_name.toLowerCase().includes(q.toLowerCase()) || u.email.toLowerCase().includes(q.toLowerCase()));
+  renderUsers(filtered);
+}
+
+async function openUserModal() {
+  editingId = null;
+  document.getElementById('modal-user-title').textContent = 'Add User';
+  document.getElementById('save-user-btn').textContent = 'Create User';
+  document.getElementById('u-name').value = '';
+  document.getElementById('u-email').value = '';
+  document.getElementById('u-title').value = '';
+  document.getElementById('u-temp-password').value = '';
+  document.getElementById('u-temp-password').disabled = false;
+  document.getElementById('user-modal-edit-section').classList.add('hidden');
+  // Load depts
+  const { data: depts } = await sb.from('departments').select('id,name').order('name');
+  allDepts = depts || [];
+  document.getElementById('u-dept').innerHTML = '<option value="">— No department —</option>' + allDepts.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+  const { data: users } = await sb.from('profiles').select('id,full_name').eq('status','active').order('full_name');
+  document.getElementById('u-manager').innerHTML = '<option value="">— No manager —</option>' + (users||[]).map(u => `<option value="${u.id}">${u.full_name}</option>`).join('');
+  openModal('modal-user');
+}
+
+async function editUser(id) {
+  editingId = id;
+  const { data: user } = await sb.from('profiles').select('*').eq('id', id).single();
+  if (!user) return;
+  document.getElementById('modal-user-title').textContent = 'Edit User';
+  document.getElementById('save-user-btn').textContent = 'Save Changes';
+  document.getElementById('u-name').value = user.full_name;
+  document.getElementById('u-email').value = user.email;
+  document.getElementById('u-title').value = user.job_title || '';
+  document.getElementById('u-temp-password').value = '';
+  document.getElementById('u-temp-password').disabled = true;
+  document.getElementById('u-is-admin').checked = user.is_admin;
+  document.getElementById('user-modal-edit-section').classList.remove('hidden');
+  // Load depts + manager
+  const { data: depts } = await sb.from('departments').select('id,name').order('name');
+  allDepts = depts || [];
+  document.getElementById('u-dept').innerHTML = '<option value="">— No department —</option>' + allDepts.map(d => `<option value="${d.id}" ${d.id===user.department_id?'selected':''}>${d.name}</option>`).join('');
+  const { data: users } = await sb.from('profiles').select('id,full_name').eq('status','active').order('full_name');
+  document.getElementById('u-manager').innerHTML = '<option value="">— No manager —</option>' + (users||[]).filter(u=>u.id!==id).map(u => `<option value="${u.id}" ${u.id===user.reports_to?'selected':''}>${u.full_name}</option>`).join('');
+  // Load permissions
+  const { data: perms } = await sb.from('permission_definitions').select('*').order('category').order('label');
+  const { data: userPerms } = await sb.from('user_permissions').select('permission').eq('profile_id', id);
+  const userPermSet = new Set((userPerms||[]).map(p=>p.permission));
+  const grouped = {};
+  (perms||[]).forEach(p => { if (!grouped[p.category]) grouped[p.category]=[]; grouped[p.category].push(p); });
+  let html = '';
+  Object.entries(grouped).forEach(([cat, items]) => {
+    html += `<div class="perm-category"><div class="perm-category-title">${cat}</div><div class="perm-grid">`;
+    items.forEach(p => {
+      html += `<label class="perm-chip ${userPermSet.has(p.code)?'selected':''}">
+        <input type="checkbox" value="${p.code}" ${userPermSet.has(p.code)?'checked':''} onchange="this.closest('.perm-chip').classList.toggle('selected',this.checked)"/>
+        ${p.label}
+      </label>`;
+    });
+    html += '</div></div>';
+  });
+  document.getElementById('perm-grid-container').innerHTML = html;
+  openModal('modal-user');
+}
+
+async function saveUser() {
   const name = document.getElementById('u-name').value.trim();
   const email = document.getElementById('u-email').value.trim();
-  const dept = document.getElementById('u-dept').value || null;
-  const reports = document.getElementById('u-reports').value || null;
-
-  if (!name || !email) { showAlert('user-alert','Name and email are required.','error'); return; }
-
-  if (existingId) {
-    const { error } = await supabase.from('app_users').update({ name, department_id: dept, reports_to: reports }).eq('id', existingId);
-    if (error) { showAlert('user-alert', error.message, 'error'); return; }
-    closeModal(); showToast('User updated!', 'success'); pages.users();
+  if (!name || !email) { toast('Name and email are required.', 'error'); return; }
+  if (editingId) {
+    // Update profile
+    await sb.from('profiles').update({
+      full_name: name, job_title: document.getElementById('u-title').value.trim(),
+      department_id: document.getElementById('u-dept').value || null,
+      reports_to: document.getElementById('u-manager').value || null,
+      is_admin: document.getElementById('u-is-admin').checked
+    }).eq('id', editingId);
+    // Update permissions
+    const checked = Array.from(document.querySelectorAll('#perm-grid-container input[type=checkbox]:checked')).map(c=>c.value);
+    await sb.from('user_permissions').delete().eq('profile_id', editingId);
+    if (checked.length) {
+      await sb.from('user_permissions').insert(checked.map(p=>({ profile_id: editingId, permission: p, granted_by: currentUser.id })));
+    }
+    toast('User updated.', 'success');
   } else {
-    // Generate temp password
-    const tempPw = 'Enp' + Math.random().toString(36).slice(2,6).toUpperCase() + Math.floor(10+Math.random()*90);
-    const hash = await bcrypt.hash(tempPw, 10);
-    const { data, error } = await supabase.from('app_users').insert({
-      name, email, password_hash: hash, status: 'password_reset_required',
-      department_id: dept, reports_to: reports, created_by: currentUser.id
-    }).select().single();
-    if (error) { showAlert('user-alert', error.message, 'error'); return; }
-    // Create default (empty) permissions
-    await supabase.from('user_permissions').insert({ user_id: data.id, granted_by: currentUser.id });
-    // Create notification settings
-    await supabase.from('notification_settings').insert({ user_id: data.id });
-    await supabase.from('audit_log').insert({ actor_id: currentUser.id, action: 'user_created', target_type: 'user', target_id: data.id });
-    closeModal();
-    showToast('User created!', 'success');
-    // Show temp password prominently
-    showModal('User Created', `
-      <div class="alert alert-warn"><strong>Temporary Password — share this with ${name}:</strong></div>
-      <div style="font-size:28px;font-weight:800;letter-spacing:.1em;text-align:center;padding:16px;background:var(--bg-surface);border-radius:var(--radius-sm);margin:12px 0">${tempPw}</div>
-      <p style="font-size:13px;color:var(--text-muted)">The user will be required to change this password on first login. Copy it now — it won't be shown again.</p>`,
-      [{ label: 'Done', cls: 'btn-primary', fn: () => { closeModal(); pages.users(); } }]
-    );
+    const password = document.getElementById('u-temp-password').value;
+    if (!password) { toast('Temporary password is required.', 'error'); return; }
+    // Create auth user via admin API — requires service role key
+    // For GitHub Pages deployment, use Supabase Edge Function or invite flow
+    // Here we use signUp which works client-side
+    const { data: authData, error: authErr } = await sb.auth.signUp({ email, password, options: { data: { full_name: name, is_admin: false } } });
+    if (authErr) { toast(authErr.message, 'error'); return; }
+    const uid = authData.user?.id;
+    if (uid) {
+      await sb.from('profiles').update({
+        full_name: name, job_title: document.getElementById('u-title').value.trim(),
+        department_id: document.getElementById('u-dept').value || null,
+        reports_to: document.getElementById('u-manager').value || null,
+        must_change_password: true, status: 'pending_password_change', created_by: currentUser.id
+      }).eq('id', uid);
+    }
+    toast(`User created. Share credentials: ${email} / ${password}`, 'success');
   }
+  closeModal('modal-user');
+  loadUsers();
 }
 
-// --- DEPARTMENTS ---
-pages.departments = async () => {
-  const el = document.getElementById('page-content');
-  try {
-    const { data, error } = await supabase.from('departments').select('*').order('name');
-    if (error) throw error;
-
-    el.innerHTML = `
-      <div class="page-header"><div class="page-title">Departments</div><button class="btn btn-primary" onclick="showCreateDeptModal()">+ New Department</button></div>
-      <div class="card"><div class="table-wrap"><table>
-        <thead><tr><th>Department Name</th><th>Created</th><th></th></tr></thead>
-        <tbody>${data.length ? data.map(d => `<tr>
-          <td><strong>${d.name}</strong></td>
-          <td>${fmtDate(d.created_at)}</td>
-          <td style="display:flex;gap:6px">
-            <button class="btn btn-sm btn-secondary" onclick="editDept('${d.id}','${d.name}')">Edit</button>
-            <button class="btn btn-sm btn-danger" onclick="deleteDept('${d.id}','${d.name}')">Delete</button>
-          </td>
-        </tr>`).join('') : `<tr><td colspan="3"><div class="empty-state"><div class="empty-icon">🏢</div><div class="empty-title">No departments yet</div></div></td></tr>`}</tbody>
-      </table></div></div>`;
-
-    window.showCreateDeptModal = () => openDeptModal(null, '');
-    window.editDept = (id, name) => openDeptModal(id, name);
-    window.deleteDept = (id, name) => {
-      showModal('Delete Department', `<p>Delete department "<strong>${name}</strong>"? Users in this department will have their department cleared.</p>`,
-        [{ label: 'Delete', cls: 'btn-danger', fn: async () => {
-          await supabase.from('departments').delete().eq('id', id);
-          closeModal(); showToast('Department deleted.', 'success'); pages.departments();
-        }}]);
-    };
-  } catch(e) { el.innerHTML = `<div class="alert alert-error">${e.message}</div>`; }
-};
-
-function openDeptModal(id, name) {
-  showModal(id ? 'Edit Department' : 'New Department', `
-    <div class="form-group"><label class="form-label">Department Name *</label>
-      <input class="form-control" id="d-name" value="${name}"/></div>
-    <div id="dept-alert"></div>`,
-    [{ label: id ? 'Save' : 'Create', cls: 'btn-primary', fn: async () => {
-      const n = document.getElementById('d-name').value.trim();
-      if (!n) { showAlert('dept-alert','Name is required.','error'); return; }
-      if (id) {
-        await supabase.from('departments').update({ name: n }).eq('id', id);
-      } else {
-        const { error } = await supabase.from('departments').insert({ name: n, created_by: currentUser.id });
-        if (error) { showAlert('dept-alert', error.message, 'error'); return; }
-      }
-      closeModal(); showToast(id ? 'Department updated!' : 'Department created!', 'success'); pages.departments();
-    }}]
-  );
+async function toggleUserStatus(id, status) {
+  const newStatus = status === 'active' ? 'inactive' : 'active';
+  await sb.from('profiles').update({ status: newStatus }).eq('id', id);
+  toast(`User ${newStatus}.`, 'success');
+  loadUsers();
 }
 
-// --- REPORTS ---
-pages.reports = async () => {
-  const el = document.getElementById('page-content');
-  try {
-    const { data, error } = await supabase
-      .from('training_assignments')
-      .select(`*, trainings(title), workflows(title),
-        assigned_user:app_users!training_assignments_assigned_to_fkey(name,email,departments(name)),
-        approver:app_users!training_assignments_approved_by_fkey(name)`)
-      .order('created_at', { ascending: false });
-    if (error) throw error;
-
-    el.innerHTML = `
-      <div class="page-header"><div class="page-title">Reports</div></div>
-      <div class="card"><div class="card-header"><span class="card-title">All Training Records</span></div>
-      <div class="table-wrap"><table>
-        <thead><tr><th>Employee</th><th>Department</th><th>Training</th><th>Workflow</th><th>Status</th><th>Assigned</th><th>Submitted</th><th>Approved</th><th>Approver</th><th>Remarks</th></tr></thead>
-        <tbody>${data.map(a => `<tr>
-          <td>${a.assigned_user?.name||'—'}<br><span style="font-size:11px;color:var(--text-muted)">${a.assigned_user?.email||''}</span></td>
-          <td>${a.assigned_user?.departments?.name||'—'}</td>
-          <td>${a.trainings?.title||'—'}</td>
-          <td>${a.workflows?.title||'—'}</td>
-          <td>${badge(a.status)}</td>
-          <td>${fmtDate(a.created_at)}</td>
-          <td>${a.submitted_at ? fmtDate(a.submitted_at) : '—'}</td>
-          <td>${a.approved_at ? fmtDate(a.approved_at) : '—'}</td>
-          <td>${a.approver?.name||'—'}</td>
-          <td style="max-width:180px;font-size:12px">${a.approver_remarks||'—'}</td>
-        </tr>`).join('')}</tbody>
-      </table></div></div>`;
-  } catch(e) { el.innerHTML = `<div class="alert alert-error">${e.message}</div>`; }
-};
-
-// --- AUDIT LOG ---
-pages.audit = async () => {
-  const el = document.getElementById('page-content');
-  try {
-    const { data, error } = await supabase
-      .from('audit_log')
-      .select('*, actor:app_users!audit_log_actor_id_fkey(name)')
-      .order('created_at', { ascending: false }).limit(200);
-    if (error) throw error;
-
-    el.innerHTML = `
-      <div class="page-header"><div class="page-title">Audit Log</div></div>
-      <div class="card"><div class="table-wrap"><table>
-        <thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>Target</th><th>Details</th></tr></thead>
-        <tbody>${data.map(l => `<tr>
-          <td style="white-space:nowrap;font-size:12px">${fmtDateTime(l.created_at)}</td>
-          <td>${l.actor?.name||'System'}</td>
-          <td><code style="font-size:12px">${l.action}</code></td>
-          <td style="font-size:12px">${l.target_type||'—'}</td>
-          <td style="font-size:11px;color:var(--text-muted);max-width:200px">${l.details ? JSON.stringify(l.details) : '—'}</td>
-        </tr>`).join('')}</tbody>
-      </table></div></div>`;
-  } catch(e) { el.innerHTML = `<div class="alert alert-error">${e.message}</div>`; }
-};
-
-// =========================================================
-// MODAL HELPERS
-// =========================================================
-function showModal(title, body, actions = []) {
-  const actHtml = actions.map(a => `<button class="btn ${a.cls}" id="modal-action-${a.label.replace(/\s/g,'')}">${a.label}</button>`).join('');
-  document.getElementById('modal-container').innerHTML = `
-    <div class="modal-overlay" id="modal-overlay">
-      <div class="modal">
-        <div class="modal-header">
-          <span class="modal-title">${title}</span>
-          <button class="modal-close" onclick="closeModal()">×</button>
+// ══════════════════════════════════════════
+// DEPARTMENTS
+// ══════════════════════════════════════════
+async function loadDepartments() {
+  const { data } = await sb.from('departments').select('*, profiles(id)').order('name');
+  const grid = document.getElementById('departments-grid');
+  if (!data?.length) {
+    grid.innerHTML = '<div class="empty-state"><div class="empty-title">No departments yet</div><div class="empty-sub">Create departments to organise your team.</div></div>';
+    return;
+  }
+  grid.innerHTML = data.map(d => `
+    <div class="card">
+      <div class="card-body">
+        <div style="font-size:1rem;font-weight:700;margin-bottom:.3rem">${d.name}</div>
+        ${d.description?`<div class="text-sm text-muted mb-3">${d.description}</div>`:''}
+        <div class="text-sm text-muted">${d.profiles?.length||0} members</div>
+        <div style="margin-top:.75rem;display:flex;gap:.5rem">
+          <button class="btn btn-ghost btn-sm" onclick="openDeptModal('${d.id}','${d.name}','${d.description||''}')">Edit</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteDept('${d.id}')">Delete</button>
         </div>
-        <div class="modal-body">${body}</div>
-        ${actions.length ? `<div class="modal-footer">${actHtml}<button class="btn btn-secondary" onclick="closeModal()">Cancel</button></div>` : ''}
       </div>
-    </div>`;
-  actions.forEach(a => {
-    document.getElementById(`modal-action-${a.label.replace(/\s/g,'')}`).addEventListener('click', a.fn);
+    </div>`).join('');
+}
+
+function openDeptModal(id='', name='', desc='') {
+  editingId = id || null;
+  document.getElementById('modal-dept-title').textContent = id ? 'Edit Department' : 'New Department';
+  document.getElementById('dept-name').value = name;
+  document.getElementById('dept-desc').value = desc;
+  openModal('modal-dept');
+}
+
+async function saveDept() {
+  const name = document.getElementById('dept-name').value.trim();
+  if (!name) { toast('Name is required.', 'error'); return; }
+  const payload = { name, description: document.getElementById('dept-desc').value.trim(), created_by: currentUser.id };
+  if (editingId) {
+    await sb.from('departments').update(payload).eq('id', editingId);
+    toast('Department updated.', 'success');
+  } else {
+    const { error } = await sb.from('departments').insert(payload);
+    if (error) { toast(error.message, 'error'); return; }
+    toast('Department created.', 'success');
+  }
+  closeModal('modal-dept');
+  loadDepartments();
+}
+
+async function deleteDept(id) {
+  if (!confirm('Delete this department? Members will be unassigned.')) return;
+  await sb.from('departments').delete().eq('id', id);
+  toast('Department deleted.', 'success');
+  loadDepartments();
+}
+
+// ══════════════════════════════════════════
+// ASSIGNMENTS
+// ══════════════════════════════════════════
+let assignFilter = 'all';
+async function loadAssignments() {
+  const tbody = document.getElementById('assign-tbody');
+  tbody.innerHTML = '<tr><td colspan="7"><div class="loading-center"><div class="spinner"></div></div></td></tr>';
+  let query = sb.from('training_assignments').select('*, trainings(title), assigned_to_profile:profiles!training_assignments_assigned_to_fkey(full_name,employee_id), assigned_by_profile:profiles!training_assignments_assigned_by_fkey(full_name)').order('created_at',{ascending:false});
+  if (assignFilter !== 'all') query = query.eq('status', assignFilter);
+  const { data, error } = await query;
+  allAssignments = data || [];
+  if (error || !allAssignments.length) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-title">No assignments</div></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = allAssignments.map(a => `
+    <tr>
+      <td><strong class="text-sm">${a.assigned_to_profile?.full_name||'—'}</strong><div class="text-xs text-muted">${a.assigned_to_profile?.employee_id||''}</div></td>
+      <td class="text-sm">${a.trainings?.title||'—'}</td>
+      <td class="text-sm text-muted">${a.assigned_by_profile?.full_name||'—'}</td>
+      <td class="text-sm text-muted">${a.due_date?fmtDate(a.due_date):'—'}</td>
+      <td style="min-width:100px"><div class="progress-bar"><div class="progress-fill" style="width:${progressPct(a)}%"></div></div><div class="text-xs text-muted mt-1">${progressPct(a)}%</div></td>
+      <td>${statusBadge(a.status)}</td>
+      <td>
+        <div class="table-actions">
+          ${a.status==='pending_approval'&&hasPermission('training.approve')?`<button class="btn btn-success btn-sm" onclick="openApprovalModal('${a.id}')">Review</button>`:''}
+          <button class="btn btn-ghost btn-sm" onclick="openExecute('${a.id}')">View</button>
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+function filterAssignments(status, el) {
+  assignFilter = status;
+  document.querySelectorAll('#view-assign .tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  loadAssignments();
+}
+
+function progressPct(assignment) {
+  // Can't easily get checklist data here without extra query, so use status
+  const map = { assigned:0, in_progress:40, pending_approval:80, completed:100, rejected:20 };
+  return map[assignment.status] || 0;
+}
+
+async function openAssignModal(type, preselectedId = null) {
+  assignType = type;
+  document.getElementById('modal-assign-title').textContent = type === 'workflow' ? 'Assign Workflow' : 'Assign Training';
+  document.getElementById('assign-item-label').innerHTML = (type === 'workflow' ? 'Workflow' : 'Training') + ' <span class="req">*</span>';
+  document.getElementById('assign-due').value = '';
+  document.getElementById('assign-notes').value = '';
+  // Populate item select
+  let items = [];
+  if (type === 'training') {
+    if (!allTrainings.length) { const { data } = await sb.from('trainings').select('id,title').eq('is_active',true).order('title'); allTrainings = data||[]; }
+    items = allTrainings;
+  } else {
+    const { data } = await sb.from('workflows').select('id,title').eq('is_active',true).order('title');
+    items = data || [];
+  }
+  document.getElementById('assign-item-select').innerHTML = items.map(i => `<option value="${i.id}" ${i.id===preselectedId?'selected':''}>${i.title}</option>`).join('');
+  // Populate users
+  const { data: users } = await sb.from('profiles').select('id,full_name,employee_id').eq('status','active').order('full_name');
+  document.getElementById('assign-user-select').innerHTML = (users||[]).filter(u=>u.id!==currentUser.id).map(u=>`<option value="${u.id}">${u.full_name} (${u.employee_id||'—'})</option>`).join('');
+  openModal('modal-assign');
+}
+
+async function saveAssignment() {
+  const itemId = document.getElementById('assign-item-select').value;
+  const userId = document.getElementById('assign-user-select').value;
+  if (!itemId || !userId) { toast('Select a training and a user.', 'error'); return; }
+  const payload = {
+    training_id: itemId, assigned_to: userId, assigned_by: currentUser.id,
+    due_date: document.getElementById('assign-due').value || null,
+    notes: document.getElementById('assign-notes').value.trim(),
+    status: 'assigned'
+  };
+  const { error } = await sb.from('training_assignments').insert(payload);
+  if (error) { toast(error.message, 'error'); return; }
+  toast('Assignment created.', 'success');
+  closeModal('modal-assign');
+  loadAssignments();
+}
+
+// ══════════════════════════════════════════
+// APPROVALS
+// ══════════════════════════════════════════
+async function loadApprovals() {
+  const el = document.getElementById('approvals-list');
+  el.innerHTML = '<div class="loading-center"><div class="spinner"></div></div>';
+  const { data, error } = await sb.from('training_assignments')
+    .select('*, trainings(title,category), profiles!training_assignments_assigned_to_fkey(full_name,employee_id,departments(name))')
+    .eq('status','pending_approval').order('submitted_at',{ascending:false});
+  if (error) { el.innerHTML = '<div class="empty-state"><div class="empty-title">Error loading approvals</div></div>'; return; }
+  if (!data?.length) {
+    el.innerHTML = '<div class="empty-state"><svg class="empty-icon" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0"/></svg><div class="empty-title">No pending approvals</div><div class="empty-sub">All trainings are reviewed.</div></div>';
+    return;
+  }
+  el.innerHTML = `<div style="display:grid;gap:.75rem">${data.map(a => `
+    <div class="card">
+      <div class="card-body" style="display:flex;gap:1rem;align-items:flex-start;flex-wrap:wrap">
+        <div style="flex:1;min-width:180px">
+          <div class="font-bold">${a.profiles?.full_name||'—'}</div>
+          <div class="text-sm text-muted">${a.profiles?.employee_id||''} · ${a.profiles?.departments?.name||'—'}</div>
+          <div class="text-sm mt-1"><strong>${a.trainings?.title||'—'}</strong> ${a.trainings?.category?`<span class="badge badge-blue">${a.trainings.category}</span>`:''}</div>
+          <div class="text-xs text-muted mt-1">Submitted ${fmtDate(a.submitted_at)}</div>
+        </div>
+        <div style="display:flex;gap:.5rem;align-items:center;flex-shrink:0">
+          <button class="btn btn-success btn-sm" onclick="quickApprove('${a.id}')">Approve</button>
+          <button class="btn btn-danger btn-sm" onclick="openApprovalModal('${a.id}')">Review</button>
+        </div>
+      </div>
+    </div>`).join('')}</div>`;
+}
+
+async function quickApprove(id) {
+  await sb.from('training_assignments').update({ status:'completed', completed_at:new Date().toISOString(), approved_by: currentUser.id }).eq('id',id);
+  toast('Approved!', 'success');
+  log(currentUser.id, 'approve_training', 'training_assignments', id, null, {status:'completed'});
+  loadApprovals();
+}
+
+async function openApprovalModal(id) {
+  approvalTarget = id;
+  const { data: a } = await sb.from('training_assignments')
+    .select('*, trainings(title,training_checklist_items(*)), profiles!training_assignments_assigned_to_fkey(full_name), assignment_checklist_progress(*), assignment_media(*)')
+    .eq('id', id).single();
+  const items = a.trainings?.training_checklist_items || [];
+  const progressMap = {};
+  (a.assignment_checklist_progress||[]).forEach(p => { progressMap[p.checklist_item_id] = p; });
+  const media = a.assignment_media || [];
+  let html = `<div class="mb-4"><strong>${a.trainings?.title}</strong><div class="text-sm text-muted">Assigned to: ${a.profiles?.full_name}</div></div>`;
+  if (items.length) {
+    html += `<div class="mb-4"><div class="font-bold text-sm mb-2">Checklist</div>`;
+    items.forEach(item => {
+      const done = progressMap[item.id]?.is_completed;
+      html += `<div class="checklist-item"><div class="check-box ${done?'checked':''}"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div><div class="checklist-item-info"><div class="checklist-item-title">${item.title}</div></div></div>`;
+    });
+    html += '</div>';
+  }
+  if (media.length) {
+    html += `<div class="mb-4"><div class="font-bold text-sm mb-2">Evidence (${media.length} file${media.length>1?'s':''})</div><div class="upload-previews">`;
+    for (const m of media) {
+      if (m.media_type === 'photo') {
+        const { data: url } = sb.storage.from('training-media').getPublicUrl(m.file_path);
+        html += `<div class="upload-preview"><img src="${url?.publicUrl||''}"/></div>`;
+      } else {
+        html += `<div class="upload-preview" style="display:flex;align-items:center;justify-content:center;font-size:.7rem;padding:.5rem;text-align:center">${m.file_name}</div>`;
+      }
+    }
+    html += '</div></div>';
+  }
+  html += `<div class="form-group"><label class="form-label">Rejection note (required if rejecting)</label><textarea class="form-input" id="rejection-note" placeholder="Describe what needs to be corrected…"></textarea></div>`;
+  document.getElementById('approval-modal-body').innerHTML = html;
+  openModal('modal-approval');
+}
+
+async function approveAssignment() {
+  if (!approvalTarget) return;
+  await sb.from('training_assignments').update({ status:'completed', completed_at:new Date().toISOString(), approved_by: currentUser.id }).eq('id', approvalTarget);
+  toast('Approved!', 'success');
+  closeModal('modal-approval');
+  loadApprovals();
+}
+
+async function rejectAssignment() {
+  if (!approvalTarget) return;
+  const note = document.getElementById('rejection-note').value.trim();
+  if (!note) { toast('Add a rejection note.', 'error'); return; }
+  await sb.from('training_assignments').update({ status:'rejected', rejection_note: note }).eq('id', approvalTarget);
+  toast('Rejected.', 'success');
+  closeModal('modal-approval');
+  loadApprovals();
+}
+
+// ══════════════════════════════════════════
+// REPORTS
+// ══════════════════════════════════════════
+async function loadReports() {
+  // Summary stats
+  const [{ count: total }, { count: completed }, { count: pending }, { count: rejected }] = await Promise.all([
+    sb.from('training_assignments').select('*',{count:'exact',head:true}),
+    sb.from('training_assignments').select('*',{count:'exact',head:true}).eq('status','completed'),
+    sb.from('training_assignments').select('*',{count:'exact',head:true}).eq('status','pending_approval'),
+    sb.from('training_assignments').select('*',{count:'exact',head:true}).eq('status','rejected'),
+  ]);
+  document.getElementById('report-stats').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Total Assignments</div><div class="stat-value">${total||0}</div></div>
+    <div class="stat-card accent-green"><div class="stat-label">Completed</div><div class="stat-value">${completed||0}</div><div class="stat-change">${total?Math.round(100*(completed||0)/total)+'% rate':''}</div></div>
+    <div class="stat-card accent-warn"><div class="stat-label">Pending Approval</div><div class="stat-value">${pending||0}</div></div>
+    <div class="stat-card accent-red"><div class="stat-label">Rejected</div><div class="stat-value">${rejected||0}</div></div>
+  `;
+  // Dept stats
+  const { data: deptStats } = await sb.from('v_department_training_stats').select('*');
+  const deptEl = document.getElementById('dept-report-body');
+  if (!deptStats?.length) {
+    deptEl.innerHTML = '<div class="empty-state"><div class="empty-title">No data</div></div>';
+  } else {
+    deptEl.innerHTML = deptStats.map(d => `
+      <div style="margin-bottom:1rem">
+        <div class="progress-label"><span><strong>${d.department_name}</strong> <span class="text-xs text-muted">${d.total_assignments||0} assignments</span></span><span>${d.completion_rate_pct||0}%</span></div>
+        <div class="progress-bar"><div class="progress-fill green" style="width:${d.completion_rate_pct||0}%"></div></div>
+      </div>`).join('');
+  }
+  // All records
+  const { data: records } = await sb.from('v_assignment_summary').select('*').order('created_at',{ascending:false}).limit(100);
+  document.getElementById('report-tbody').innerHTML = (records||[]).map(r => `
+    <tr>
+      <td class="text-sm">${r.assigned_to_name||'—'}<div class="text-xs text-muted">${r.employee_id||''}</div></td>
+      <td class="text-sm">${r.training_title||'—'}</td>
+      <td class="text-sm">${r.department_name||'—'}</td>
+      <td>${statusBadge(r.status)}</td>
+      <td class="text-sm text-muted">${r.completed_at?fmtDate(r.completed_at):'—'}</td>
+    </tr>`).join('');
+}
+
+function exportCSV() {
+  const rows = [['Employee','Training','Department','Status','Completed At']];
+  document.querySelectorAll('#report-tbody tr').forEach(tr => {
+    const cells = Array.from(tr.querySelectorAll('td')).map(td => td.innerText.replace(/\n/g,' ').trim());
+    rows.push(cells);
   });
-}
-function closeModal() { document.getElementById('modal-container').innerHTML = ''; }
-
-// =========================================================
-// TOAST
-// =========================================================
-function showToast(msg, type = 'success') {
-  const t = document.createElement('div');
-  t.style.cssText = `position:fixed;bottom:24px;right:24px;z-index:9999;padding:12px 20px;border-radius:8px;font-size:14px;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,.15);transition:opacity .3s;
-    background:${type==='success'?'#1A7F4B':type==='error'?'#C8102E':'#1D4ED8'};color:white;`;
-  t.textContent = msg;
-  document.body.appendChild(t);
-  setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 3000);
+  const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'enpro-training-report.csv'; a.click();
 }
 
-// =========================================================
-// ALERT IN-PAGE
-// =========================================================
-function showAlert(id, msg, type) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.innerHTML = `<div class="alert alert-${type}">${msg}</div>`;
+// ══════════════════════════════════════════
+// PROFILE
+// ══════════════════════════════════════════
+function loadProfile() {
+  const p = currentProfile;
+  document.getElementById('profile-body').innerHTML = `
+    <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem">
+      <div class="sb-avatar" style="width:56px;height:56px;font-size:1.2rem">${p.full_name.split(' ').map(n=>n[0]).join('').slice(0,2)}</div>
+      <div>
+        <div style="font-size:1.1rem;font-weight:700">${p.full_name}</div>
+        <div class="text-sm text-muted">${p.job_title||'Staff'} · ${p.employee_id||'—'}</div>
+        <div class="text-xs text-muted">${p.email}</div>
+      </div>
+    </div>
+    <hr/>
+    <div class="mt-4">
+      <div class="form-group">
+        <label class="form-label">Change Password</label>
+        <input type="password" class="form-input" id="profile-new-pw" placeholder="New password (min 8 chars)"/>
+      </div>
+      <div class="form-group">
+        <input type="password" class="form-input" id="profile-confirm-pw" placeholder="Confirm new password"/>
+      </div>
+      <button class="btn btn-primary" onclick="updateProfilePassword()">Update Password</button>
+    </div>
+  `;
 }
 
-// =========================================================
+async function updateProfilePassword() {
+  const np = document.getElementById('profile-new-pw').value;
+  const cp = document.getElementById('profile-confirm-pw').value;
+  if (np !== cp) { toast('Passwords do not match.', 'error'); return; }
+  if (np.length < 8) { toast('Minimum 8 characters.', 'error'); return; }
+  const { error } = await sb.auth.updateUser({ password: np });
+  if (error) { toast(error.message, 'error'); return; }
+  toast('Password updated.', 'success');
+}
+
+// ══════════════════════════════════════════
+// SETTINGS
+// ══════════════════════════════════════════
+async function loadSettings() {
+  const { data } = await sb.from('notification_settings').select('*').single();
+  document.getElementById('notif-settings-body').innerHTML = `
+    <div style="display:grid;gap:1rem">
+      ${settingToggle('notif-global', 'Enable Notifications Globally', data?.enabled_globally)}
+      ${settingToggle('notif-assign', 'Notify on Training Assignment', data?.notify_on_assignment)}
+      ${settingToggle('notif-approval-req', 'Notify on Approval Request', data?.notify_on_approval_req)}
+      ${settingToggle('notif-approval-res', 'Notify on Approval Result', data?.notify_on_approval_res)}
+    </div>
+    <div class="mt-4"><button class="btn btn-primary" onclick="saveNotifSettings()">Save Settings</button></div>
+  `;
+}
+
+function settingToggle(id, label, checked) {
+  return `<label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:.5rem 0;border-bottom:1px solid var(--border)">
+    <span class="text-sm font-medium">${label}</span>
+    <input type="checkbox" id="${id}" ${checked?'checked':''} style="accent-color:var(--red);width:16px;height:16px"/>
+  </label>`;
+}
+
+async function saveNotifSettings() {
+  const payload = {
+    enabled_globally: document.getElementById('notif-global').checked,
+    notify_on_assignment: document.getElementById('notif-assign').checked,
+    notify_on_approval_req: document.getElementById('notif-approval-req').checked,
+    notify_on_approval_res: document.getElementById('notif-approval-res').checked,
+    updated_by: currentUser.id, updated_at: new Date().toISOString()
+  };
+  await sb.from('notification_settings').update(payload).neq('id', '00000000-0000-0000-0000-000000000000');
+  toast('Settings saved.', 'success');
+}
+
+// ══════════════════════════════════════════
 // HELPERS
-// =========================================================
-function badge(status) {
-  const map = { pending:'badge-pending', submitted:'badge-submitted', approved:'badge-approved', rejected:'badge-rejected', active:'badge-active', inactive:'badge-inactive', password_reset_required:'badge-reset' };
-  const label = { password_reset_required: 'Temp Password' };
-  return `<span class="badge ${map[status]||''}">${label[status]||status}</span>`;
+// ══════════════════════════════════════════
+function fmtDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
 }
-function fmtDate(d) { if (!d) return '—'; return new Date(d).toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' }); }
-function fmtDateTime(d) { if (!d) return '—'; return new Date(d).toLocaleString('en-IN', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }); }
 
-// Allow Enter key on login
-document.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && document.getElementById('login-page').style.display !== 'none') handleLogin();
-});
+function statusBadge(status) {
+  const map = {
+    assigned: 'badge-blue', in_progress: 'badge-warn', pending_approval: 'badge-warn',
+    completed: 'badge-green', rejected: 'badge-red', not_started: 'badge-gray',
+    active: 'badge-green', inactive: 'badge-gray', pending_password_change: 'badge-warn'
+  };
+  const label = (status||'').replace(/_/g,' ');
+  return `<span class="badge ${map[status]||'badge-gray'}">${label}</span>`;
+}
+
+// ══════════════════════════════════════════
+// STARTUP
+// ══════════════════════════════════════════
+(async function init() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session?.user) {
+    await bootApp(session.user);
+  }
+  // Listen for auth changes
+  sb.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_OUT') { location.reload(); }
+  });
+})();
 </script>
 </body>
 </html>
