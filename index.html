@@ -224,16 +224,18 @@ let SB = null;
 let SESSION = null;
 
 const PERMISSIONS = [
-  {key:'manage_users',        label:'Manage Users',         icon:'👥'},
-  {key:'manage_departments',  label:'Manage Departments',   icon:'🏢'},
-  {key:'manage_trainings',    label:'Manage Trainings',     icon:'📋'},
-  {key:'manage_workflows',    label:'Manage Workflows',     icon:'🔄'},
-  {key:'assign_trainings',    label:'Assign Trainings',     icon:'📌'},
-  {key:'approve_completions', label:'Mark Trainings Done',  icon:'✅'},
-  {key:'view_reports',        label:'View Reports',         icon:'📊'},
-  {key:'manage_zones',        label:'Manage Divisions/Zones',icon:'🗺️'},
-  {key:'upload_before_photo', label:'Upload Before Photos', icon:'📷'},
-  {key:'ceo_approval',        label:'CEO Approval (5S)',    icon:'👑'},
+  {key:'manage_users',        label:'Manage Users',          icon:'👥'},
+  {key:'manage_departments',  label:'Manage Departments',    icon:'🏢'},
+  {key:'manage_hierarchy',    label:'Manage Hierarchy Levels',icon:'🪜'},
+  {key:'manage_trainings',    label:'Manage Trainings',      icon:'📋'},
+  {key:'manage_workflows',    label:'Manage Workflows',      icon:'🔄'},
+  {key:'assign_trainings',    label:'Assign Trainings',      icon:'📌'},
+  {key:'approve_completions', label:'Mark Trainings Done',   icon:'✅'},
+  {key:'view_reports',        label:'View Reports',          icon:'📊'},
+  {key:'manage_zones',        label:'Manage Zones (5S Admin)',icon:'🗺️'},
+  {key:'is_zone_manager',     label:'Zone Manager (5S)',     icon:'🧑‍🏭'},
+  {key:'can_upload_before',   label:'Upload Before Photos (5S)',icon:'📷'},
+  {key:'is_ceo',              label:'CEO (5S Approval)',     icon:'👑'},
 ];
 
 const STATUS_BADGE = {
@@ -242,7 +244,7 @@ const STATUS_BADGE = {
   completed:   '<span class="badge badge-green">Completed</span>',
 };
 
-const PP_STATUS_BADGE = {
+const WORK_STATUS_BADGE = {
   awaiting_before:     '<span class="badge badge-gray">Awaiting Before Photo</span>',
   awaiting_after:      '<span class="badge badge-blue">Awaiting After Photo</span>',
   awaiting_ceo_review: '<span class="badge badge-yellow">Awaiting CEO Review</span>',
@@ -251,7 +253,9 @@ const PP_STATUS_BADGE = {
   overdue:             '<span class="badge badge-red">Overdue</span>',
 };
 
-const PP_TYPE_LABEL = { FPP:'Fixed Point Photo', WPP:'Worst Point Photo', WFP:'Wet Floor Photo' };
+const WORK_TYPE_LABEL = { FPP:'Fixed Point Photo', WPP:'Worst Point Photo', WFP:'Wet Floor Photo' };
+const WORK_TYPE_DEADLINE_HOURS = { FPP: 2160, WPP: 48, WFP: 48 }; // FPP = 90 days = 2160 hrs
+
 
 /* ═══════════════════════════════
    INIT
@@ -415,14 +419,15 @@ function buildNav() {
     {section:'Training Management'},
     {id:'users',        label:'Users',          icon:'👥', perm:'manage_users'},
     {id:'departments',  label:'Departments',    icon:'🏢', perm:'manage_departments'},
+    {id:'hierarchy',    label:'Hierarchy Levels',icon:'🪜', perm:'manage_hierarchy'},
     {id:'trainings',    label:'Trainings',      icon:'📚', perm:'manage_trainings'},
     {id:'workflows',    label:'Workflows',      icon:'🔄', perm:'manage_workflows'},
     {id:'assign',       label:'Assign',         icon:'📌', perm:'assign_trainings'},
-    {section:'5S Photo Projects'},
-    {id:'my-photo-tasks', label:'My Photo Tasks', icon:'📷', always:true},
-    {id:'zones',         label:'Divisions & Zones', icon:'🗺️', perm:'manage_zones'},
-    {id:'photo-projects', label:'All Projects',     icon:'🖼️', perm:'manage_zones'},
-    {id:'ceo-dashboard',  label:'CEO Dashboard',    icon:'👑', perm:'ceo_approval'},
+    {section:'5S Zone Tracker'},
+    {id:'my-zone-tasks', label:'My Zone Tasks',  icon:'📷', always:true},
+    {id:'zones',         label:'Zones',          icon:'🗺️', perm:'manage_zones'},
+    {id:'zone-records',  label:'All Work Records', icon:'🖼️', perm:'manage_zones'},
+    {id:'ceo-dashboard', label:'CEO Dashboard',  icon:'👑', perm:'is_ceo'},
     {section:'Admin', admin:true},
     {id:'reports',      label:'Reports',        icon:'📈', perm:'view_reports'},
     {id:'settings',     label:'Settings',       icon:'⚙️', always:true},
@@ -468,14 +473,15 @@ function renderPage(id) {
     'approvals':      pageApprovals,
     'users':          pageUsers,
     'departments':    pageDepartments,
+    'hierarchy':      pageHierarchy,
     'trainings':      pageTrainings,
     'workflows':      pageWorkflows,
     'assign':         pageAssign,
     'reports':        pageReports,
     'settings':       pageSettings,
-    'my-photo-tasks': pageMyPhotoTasks,
+    'my-zone-tasks':  pageMyZoneTasks,
     'zones':          pageZones,
-    'photo-projects': pagePhotoProjects,
+    'zone-records':   pageZoneRecords,
     'ceo-dashboard':  pageCeoDashboard,
   };
   if (map[id]) map[id]();
@@ -493,32 +499,32 @@ async function pageDashboard() {
     SB.from('training_assignments').select('id',{count:'exact',head:true})
       .eq('assigned_to',SESSION.user.id).neq('status','completed'),
   ]);
-  let pendingMarks = 0, pendingPhotoTasks = 0;
+  let pendingMarks = 0, pendingCeoReview = 0;
   if (can('approve_completions')) {
     const {count} = await SB.from('training_assignments')
       .select('id',{count:'exact',head:true}).neq('status','completed');
     pendingMarks = count || 0;
   }
-  // photo tasks waiting on this user (before upload as zone employee, after upload as zonal manager, or ceo review)
-  const {data: myZonesBefore} = await SB.from('zones').select('id').eq('before_user_id', SESSION.user.id);
-  const {data: myZonesManager} = await SB.from('zones').select('id').eq('zonal_manager_id', SESSION.user.id);
-  const beforeZoneIds = (myZonesBefore||[]).map(z=>z.id);
-  const mgrZoneIds = (myZonesManager||[]).map(z=>z.id);
-  let myPhotoCount = 0;
-  if (beforeZoneIds.length) {
-    const {count} = await SB.from('photo_projects').select('id',{count:'exact',head:true})
-      .in('zone_id', beforeZoneIds).eq('status','awaiting_before');
-    myPhotoCount += count || 0;
+  let myZoneTaskCount = 0;
+  if (can('can_upload_before')) {
+    const {count} = await SB.from('zone_work_records').select('id',{count:'exact',head:true}).eq('status','awaiting_before');
+    myZoneTaskCount += count || 0;
   }
-  if (mgrZoneIds.length) {
-    const {count} = await SB.from('photo_projects').select('id',{count:'exact',head:true})
-      .in('zone_id', mgrZoneIds).in('status',['awaiting_after','rejected']);
-    myPhotoCount += count || 0;
+  if (can('is_zone_manager')) {
+    const {data: myZones} = await SB.from('zones').select('id').eq('zone_manager_id', SESSION.user.id);
+    const zoneIds = (myZones||[]).map(z=>z.id);
+    if (zoneIds.length) {
+      const {count} = await SB.from('zone_work_records').select('id',{count:'exact',head:true})
+        .in('zone_id', zoneIds).in('status',['awaiting_after','rejected']);
+      myZoneTaskCount += count || 0;
+    }
   }
-  if (can('ceo_approval')) {
-    const {count} = await SB.from('photo_projects').select('id',{count:'exact',head:true}).eq('status','awaiting_ceo_review');
-    pendingPhotoTasks = count || 0;
+  if (can('is_ceo')) {
+    const {count} = await SB.from('zone_work_records').select('id',{count:'exact',head:true}).eq('status','awaiting_ceo_review');
+    pendingCeoReview = count || 0;
   }
+  const {count: unreadPings} = await SB.from('ceo_pings').select('id',{count:'exact',head:true}).eq('sent_to',SESSION.user.id).eq('is_read',false);
+  if (unreadPings) myZoneTaskCount += unreadPings;
 
   mc.innerHTML = `
     <div class="page-header"><h1>Dashboard</h1><p>Welcome back, ${SESSION.user.full_name}</p></div>
@@ -529,8 +535,8 @@ async function pageDashboard() {
       <div class="stat-card"><div class="val">${wRes.count||0}</div><div class="lbl">Workflows</div></div>` : ''}
       <div class="stat-card"><div class="val">${aRes.count||0}</div><div class="lbl">My Pending Trainings</div></div>
       ${pendingMarks > 0 ? `<div class="stat-card"><div class="val text-red">${pendingMarks}</div><div class="lbl">Trainings To Mark</div></div>` : ''}
-      ${myPhotoCount > 0 ? `<div class="stat-card"><div class="val text-red">${myPhotoCount}</div><div class="lbl">My Photo Tasks</div></div>` : ''}
-      ${pendingPhotoTasks > 0 ? `<div class="stat-card"><div class="val text-red">${pendingPhotoTasks}</div><div class="lbl">Awaiting CEO Review</div></div>` : ''}
+      ${myZoneTaskCount > 0 ? `<div class="stat-card"><div class="val text-red">${myZoneTaskCount}</div><div class="lbl">My Zone Tasks</div></div>` : ''}
+      ${pendingCeoReview > 0 ? `<div class="stat-card"><div class="val text-red">${pendingCeoReview}</div><div class="lbl">Awaiting CEO Review</div></div>` : ''}
     </div>
     <div class="card">
       <div class="card-header"><h2>My Recent Assignments</h2></div>
@@ -555,31 +561,58 @@ async function pageDashboard() {
 }
 
 /* ═══════════════════════════════
-   MY TRAININGS (view-only checklist for employee)
+   MY TRAININGS (view-only checklist for employee, grouped by workflow w/ progress)
 ═══════════════════════════════ */
 async function pageMyTrainings() {
   document.getElementById('main-content').innerHTML = `
     <div class="page-header"><h1>My Trainings</h1><p>Trainings assigned to you. Your manager marks these complete.</p></div>
+    <div id="my-wf-progress"></div>
     <div id="my-train-list">Loading…</div>`;
   await loadMyTrainings();
 }
 
 async function loadMyTrainings() {
   const {data} = await SB.from('training_assignments')
-    .select('id,status,remarks,approved_at,trainings(id,title,description)')
+    .select('id,status,remarks,approved_at,sort_order_in_workflow,workflow_assignment_id,trainings(id,title,description)')
     .eq('assigned_to',SESSION.user.id)
     .order('created_at',{ascending:false});
+
+  const {data: progress} = await SB.from('v_workflow_progress').select('*').eq('assigned_to', SESSION.user.id);
+
+  const progEl = document.getElementById('my-wf-progress');
+  if (progress && progress.length > 0) {
+    progEl.innerHTML = progress.map(p => `
+      <div class="card">
+        <div class="card-body">
+          <div class="flex-row" style="justify-content:space-between;margin-bottom:8px">
+            <strong>${p.workflow_title}</strong>
+            <span style="font-size:.8rem;color:var(--gray-600)">Training ${p.completed_trainings} of ${p.total_trainings} \u2014 ${p.pct_complete||0}%</span>
+          </div>
+          <div class="progress-bar-wrap"><div class="progress-bar-fill" style="width:${p.pct_complete||0}%"></div></div>
+        </div>
+      </div>`).join('');
+  } else {
+    progEl.innerHTML = '';
+  }
+
   const el = document.getElementById('my-train-list');
   if (!data || data.length === 0) {
     el.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>No trainings assigned yet.</p></div>';
     return;
   }
-  el.innerHTML = data.map(a=>`
+  const wfMap = {};
+  (progress||[]).forEach(p => { wfMap[p.workflow_assignment_id] = p; });
+
+  el.innerHTML = data.map(a=>{
+    const wf = a.workflow_assignment_id ? wfMap[a.workflow_assignment_id] : null;
+    const stepLabel = wf ? `<span class="chip">Step ${a.sort_order_in_workflow+1} of ${wf.total_trainings} \u2014 ${wf.workflow_title}</span>` : '';
+    return `
     <div class="card">
       <div class="card-header">
         <div>
           <h2>${a.trainings?.title||'Training'}</h2>
           <small style="color:var(--gray-400)">${a.trainings?.description||''}</small>
+          ${stepLabel ? `<div style="margin-top:6px">${stepLabel}</div>` : ''}
         </div>
         <div class="flex-row">
           ${STATUS_BADGE[a.status]}
@@ -587,7 +620,8 @@ async function loadMyTrainings() {
         </div>
       </div>
       ${a.remarks ? `<div style="padding:10px 20px;background:var(--red-light);font-size:.82rem;color:var(--red)">Note: ${a.remarks}</div>` : ''}
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 async function openChecklist(assignmentId, editable) {
@@ -701,8 +735,8 @@ async function pageUsers() {
       </div>
       <div class="card-body table-wrap">
         <table>
-          <thead><tr><th>ID</th><th>Name</th><th>Department</th><th>Manager</th><th>Admin</th><th>Status</th><th>Actions</th></tr></thead>
-          <tbody id="users-tbody"><tr><td colspan="7" style="text-align:center;color:var(--gray-400)">Loading…</td></tr></tbody>
+          <thead><tr><th>ID</th><th>Name</th><th>Department</th><th>Level</th><th>Manager</th><th>Admin</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="users-tbody"><tr><td colspan="8" style="text-align:center;color:var(--gray-400)">Loading…</td></tr></tbody>
         </table>
       </div>
     </div>`;
@@ -712,11 +746,12 @@ async function pageUsers() {
 async function loadUsersTable() {
   const {data} = await SB.from('v_user_profiles').select('*').order('created_at');
   const tb = document.getElementById('users-tbody');
-  if (!data||data.length===0){tb.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--gray-400)">No users.</td></tr>';return;}
+  if (!data||data.length===0){tb.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--gray-400)">No users.</td></tr>';return;}
   tb.innerHTML = data.map(u=>`<tr>
     <td><code>${u.employee_id}</code></td>
     <td>${u.full_name}</td>
     <td>${u.department_name||'—'}</td>
+    <td>${u.hierarchy_level_name||'—'}</td>
     <td>${u.manager_name||'—'}</td>
     <td>${u.is_admin?'<span class="badge badge-red">Admin</span>':'—'}</td>
     <td>${u.is_active?'<span class="badge badge-green">Active</span>':'<span class="badge badge-gray">Inactive</span>'}</td>
@@ -730,18 +765,22 @@ async function loadUsersTable() {
 }
 
 async function openCreateUser() {
-  const [{data:depts},{data:users}] = await Promise.all([
+  const [{data:depts},{data:levels},{data:users}] = await Promise.all([
     SB.from('departments').select('id,name').order('name'),
+    SB.from('hierarchy_levels').select('id,name,rank').order('rank'),
     SB.from('users').select('id,full_name,employee_id').eq('is_active',true).order('full_name'),
   ]);
   const tmpPw = 'Tmp'+Math.random().toString(36).slice(2,8).toUpperCase()+'!';
   openModal('Add New User',`
     <div class="form-group"><label>Employee ID</label><input class="form-control" id="u-emp" placeholder="e.g. EMP-005"/></div>
     <div class="form-group"><label>Full Name</label><input class="form-control" id="u-name"/></div>
-    <div class="form-group"><label>Email (optional)</label><input class="form-control" id="u-email" type="email"/></div>
+    <div class="form-group"><label>Email (login ID)</label><input class="form-control" id="u-email" type="email" placeholder="name@enpro.com"/></div>
     <div class="form-group"><label>Department</label>
       <select class="form-control" id="u-dept"><option value="">— None —</option>
         ${(depts||[]).map(d=>`<option value="${d.id}">${d.name}</option>`).join('')}</select></div>
+    <div class="form-group"><label>Hierarchy Level</label>
+      <select class="form-control" id="u-level"><option value="">— None —</option>
+        ${(levels||[]).map(l=>`<option value="${l.id}">${l.name}</option>`).join('')}</select></div>
     <div class="form-group"><label>Reports To</label>
       <select class="form-control" id="u-reports"><option value="">— None —</option>
         ${(users||[]).map(u=>`<option value="${u.id}">${u.full_name} (${u.employee_id})</option>`).join('')}</select></div>
@@ -756,13 +795,14 @@ async function createUser() {
   const name    = document.getElementById('u-name').value.trim();
   const email   = document.getElementById('u-email').value.trim()||null;
   const dept    = document.getElementById('u-dept').value||null;
+  const level   = document.getElementById('u-level').value||null;
   const reports = document.getElementById('u-reports').value||null;
   const pw      = document.getElementById('u-pw').value;
   const isAdmin = document.getElementById('u-admin').checked;
   if (!empId||!name||!pw) return toast('ID, Name and Password required.','error');
   const {error} = await SB.rpc('create_user_with_password',{
     p_employee_id:empId, p_full_name:name, p_email:email,
-    p_department_id:dept, p_reports_to:reports,
+    p_department_id:dept, p_hierarchy_level_id:level, p_reports_to:reports,
     p_password:pw, p_is_admin:isAdmin, p_created_by:SESSION.user.id
   });
   if (error) return toast('Error: '+error.message,'error');
@@ -773,8 +813,9 @@ async function createUser() {
 }
 
 async function editUser(u) {
-  const [{data:depts},{data:users}] = await Promise.all([
+  const [{data:depts},{data:levels},{data:users}] = await Promise.all([
     SB.from('departments').select('id,name').order('name'),
+    SB.from('hierarchy_levels').select('id,name,rank').order('rank'),
     SB.from('users').select('id,full_name,employee_id').eq('is_active',true).order('full_name'),
   ]);
   openModal('Edit: '+u.full_name,`
@@ -783,6 +824,9 @@ async function editUser(u) {
     <div class="form-group"><label>Department</label>
       <select class="form-control" id="eu-dept"><option value="">— None —</option>
         ${(depts||[]).map(d=>`<option value="${d.id}"${d.id===u.department_id?' selected':''}>${d.name}</option>`).join('')}</select></div>
+    <div class="form-group"><label>Hierarchy Level</label>
+      <select class="form-control" id="eu-level"><option value="">— None —</option>
+        ${(levels||[]).map(l=>`<option value="${l.id}"${l.id===u.hierarchy_level_id?' selected':''}>${l.name}</option>`).join('')}</select></div>
     <div class="form-group"><label>Reports To</label>
       <select class="form-control" id="eu-reports"><option value="">— None —</option>
         ${(users||[]).filter(x=>x.id!==u.id).map(x=>`<option value="${x.id}"${x.id===u.reports_to?' selected':''}>${x.full_name} (${x.employee_id})</option>`).join('')}</select></div>
@@ -795,9 +839,10 @@ async function saveEditUser(id) {
   const name  = document.getElementById('eu-name').value.trim();
   const email = document.getElementById('eu-email').value.trim()||null;
   const dept  = document.getElementById('eu-dept').value||null;
+  const level = document.getElementById('eu-level').value||null;
   const rep   = document.getElementById('eu-reports').value||null;
   const pw    = document.getElementById('eu-pw').value.trim();
-  const {error} = await SB.from('users').update({full_name:name,email,department_id:dept,reports_to:rep}).eq('id',id);
+  const {error} = await SB.from('users').update({full_name:name,email,department_id:dept,hierarchy_level_id:level,reports_to:rep}).eq('id',id);
   if (error) return toast('Error: '+error.message,'error');
   if (pw) {
     await SB.rpc('update_user_password',{p_user_id:id,p_new_password:pw});
@@ -1183,9 +1228,9 @@ async function doAssignWorkflow(){
   if(wae)return toast('Error: '+wae.message,'error');
   const {data:wts}=await SB.from('workflow_trainings').select('training_id,sort_order').eq('workflow_id',wfId).order('sort_order');
   if(!wts||wts.length===0){await SB.from('workflow_assignments').delete().eq('id',wa.id);return toast('Workflow has no trainings.','error');}
-  const {error:tae}=await SB.from('training_assignments').insert(wts.map(wt=>({
+  const {error:tae}=await SB.from('training_assignments').insert(wts.map((wt,idx)=>({
     training_id:wt.training_id,assigned_to:userId,assigned_by:SESSION.user.id,
-    workflow_assignment_id:wa.id,status:'pending'
+    workflow_assignment_id:wa.id,sort_order_in_workflow:idx,status:'pending'
   })));
   if(tae){await SB.from('workflow_assignments').delete().eq('id',wa.id);return toast('Error creating assignments.','error');}
   await auditLog('WORKFLOW_ASSIGNED','workflow_assignments',wa.id,{assigned_to:userId,workflow_id:wfId});
@@ -1280,454 +1325,457 @@ function saveConn(){
 }
 
 /* ═══════════════════════════════════════════════════════════
-   5S PHOTO PROJECTS — DIVISIONS & ZONES
+   HIERARCHY LEVELS (admin defines named, ordered levels)
 ═══════════════════════════════════════════════════════════ */
-async function pageZones() {
+async function pageHierarchy() {
   document.getElementById('main-content').innerHTML = `
-    <div class="page-header"><h1>Divisions & Zones</h1><p>Set up divisions, zones, and assign the before-photo employee and zonal manager for each zone.</p></div>
+    <div class="page-header"><h1>Hierarchy Levels</h1><p>Define named organisation levels (e.g. Director, Manager, Supervisor, Worker) in order. Assign users to a level when creating or editing them.</p></div>
     <div class="card">
-      <div class="card-header"><h2>Divisions</h2>
-        ${can('manage_zones')?'<button class="btn btn-primary btn-sm" onclick="openCreateDivision()">+ Add Division</button>':''}
+      <div class="card-header"><h2>Levels</h2>
+        ${can('manage_hierarchy')?'<button class="btn btn-primary btn-sm" onclick="openCreateLevel()">+ Add Level</button>':''}
       </div>
-      <div class="card-body" id="division-list">Loading…</div>
+      <div class="card-body table-wrap" id="hier-list">Loading…</div>
     </div>`;
-  await loadDivisions();
+  await loadHierarchyLevels();
 }
 
-async function loadDivisions() {
-  const {data: divisions} = await SB.from('divisions').select('*').order('name');
-  const el = document.getElementById('division-list');
-  if (!divisions || divisions.length === 0) {
-    el.innerHTML = '<div class="empty-state"><div class="icon">🗺️</div><p>No divisions yet.</p></div>';
+async function loadHierarchyLevels() {
+  const {data} = await SB.from('hierarchy_levels').select('*').order('rank');
+  const el = document.getElementById('hier-list');
+  if (!data || data.length === 0) {
+    el.innerHTML = '<div class="empty-state"><div class="icon">🪜</div><p>No hierarchy levels yet.</p></div>';
     return;
   }
-  let html = '';
-  for (const div of divisions) {
-    const {data: zones} = await SB.from('zones')
-      .select('id,name,before_user_id,zonal_manager_id,users_before:before_user_id(full_name),users_zm:zonal_manager_id(full_name)')
-      .eq('division_id', div.id).order('name');
-    html += `
-      <div class="card" style="margin-bottom:14px">
-        <div class="card-header">
-          <h2>🏭 ${div.name}</h2>
-          <div class="flex-row">
-            ${can('manage_zones')?`<button class="btn btn-ghost btn-sm" onclick="openCreateZone('${div.id}','${esc(div.name)}')">+ Add Zone</button>
-            <button class="btn btn-ghost btn-sm text-red" onclick="deleteDivision('${div.id}','${esc(div.name)}')">Delete Division</button>`:''}
-          </div>
-        </div>
-        <div class="card-body table-wrap">
-          ${(!zones || zones.length===0) ? '<p style="color:var(--gray-400);font-size:.85rem">No zones yet.</p>' : `
-          <table>
-            <thead><tr><th>Zone</th><th>Before-Photo Employee</th><th>Zonal Manager</th><th>Actions</th></tr></thead>
-            <tbody>${zones.map(z=>`<tr>
-              <td><strong>${z.name}</strong></td>
-              <td>${z.users_before?.full_name||'<span style="color:var(--gray-400)">Not assigned</span>'}</td>
-              <td>${z.users_zm?.full_name||'<span style="color:var(--gray-400)">Not assigned</span>'}</td>
-              <td class="flex-row">
-                ${can('manage_zones')?`
-                <button class="btn btn-ghost btn-sm" onclick="editZone('${z.id}','${esc(z.name)}','${z.before_user_id||''}','${z.zonal_manager_id||''}','${div.id}','${esc(div.name)}')">Edit</button>
-                <button class="btn btn-ghost btn-sm text-red" onclick="deleteZone('${z.id}','${div.id}','${esc(div.name)}')">Delete</button>`:'—'}
-              </td>
-            </tr>`).join('')}</tbody>
-          </table>`}
-        </div>
-      </div>`;
-  }
-  el.innerHTML = html;
+  el.innerHTML = `<table>
+    <thead><tr><th>Rank</th><th>Level Name</th><th>Actions</th></tr></thead>
+    <tbody>${data.map(h=>`<tr>
+      <td><span class="chip">${h.rank}</span></td>
+      <td><strong>${h.name}</strong></td>
+      <td class="flex-row">
+        ${can('manage_hierarchy')?`
+          <button class="btn btn-ghost btn-sm" onclick="editLevel('${h.id}','${esc(h.name)}',${h.rank})">Edit</button>
+          <button class="btn btn-ghost btn-sm text-red" onclick="deleteLevel('${h.id}','${esc(h.name)}')">Delete</button>`:'—'}
+      </td>
+    </tr>`).join('')}</tbody></table>`;
 }
 
-function openCreateDivision(){
-  openModal('Add Division',`
-    <div class="form-group"><label>Division Name</label><input class="form-control" id="div-name" placeholder="e.g. Plant A"/></div>
-    <div class="form-group"><label>Description</label><textarea class="form-control" id="div-desc"></textarea></div>`,
+function openCreateLevel(){
+  openModal('Add Hierarchy Level',`
+    <div class="form-group"><label>Level Name</label><input class="form-control" id="hl-name" placeholder="e.g. Supervisor"/></div>
+    <div class="form-group"><label>Rank (1 = highest in the org)</label><input class="form-control" id="hl-rank" type="number" value="1" min="1"/></div>`,
     [{label:'Create', action: async ()=>{
-      const name = document.getElementById('div-name').value.trim();
-      const desc = document.getElementById('div-desc').value.trim()||null;
+      const name = document.getElementById('hl-name').value.trim();
+      const rank = parseInt(document.getElementById('hl-rank').value)||1;
       if(!name) return toast('Name required.','error');
-      const {error} = await SB.from('divisions').insert({name, description:desc});
+      const {error} = await SB.from('hierarchy_levels').insert({name, rank});
       if(error) return toast('Error: '+error.message,'error');
-      toast('Division created!','success'); closeModal(); await loadDivisions();
+      toast('Level created!','success'); closeModal(); await loadHierarchyLevels();
     }, style:'btn-primary'}]);
 }
 
-async function deleteDivision(id, name) {
-  if(!confirm(`Delete division "${name}"? This will remove all its zones too.`)) return;
-  await SB.from('divisions').delete().eq('id', id);
-  toast('Deleted.','success'); await loadDivisions();
-}
-
-async function openCreateZone(divisionId, divisionName) {
-  const {data: users} = await SB.from('users').select('id,full_name,employee_id').eq('is_active',true).order('full_name');
-  openModal(`Add Zone — ${divisionName}`,`
-    <div class="form-group"><label>Zone Name</label><input class="form-control" id="zone-name" placeholder="e.g. Zone 1 — Assembly Line"/></div>
-    <div class="form-group"><label>Before-Photo Employee</label>
-      <select class="form-control" id="zone-before"><option value="">— Select —</option>
-        ${(users||[]).map(u=>`<option value="${u.id}">${u.full_name} (${u.employee_id})</option>`).join('')}</select></div>
-    <div class="form-group"><label>Zonal Manager</label>
-      <select class="form-control" id="zone-zm"><option value="">— Select —</option>
-        ${(users||[]).map(u=>`<option value="${u.id}">${u.full_name} (${u.employee_id})</option>`).join('')}</select></div>`,
-    [{label:'Create Zone', action: async ()=>{
-      const name = document.getElementById('zone-name').value.trim();
-      const before = document.getElementById('zone-before').value||null;
-      const zm = document.getElementById('zone-zm').value||null;
-      if(!name) return toast('Zone name required.','error');
-      const {error} = await SB.from('zones').insert({division_id:divisionId, name, before_user_id:before, zonal_manager_id:zm});
-      if(error) return toast('Error: '+error.message,'error');
-      toast('Zone created!','success'); closeModal(); await loadDivisions();
-    }, style:'btn-primary'}]);
-}
-
-async function editZone(zoneId, name, beforeId, zmId, divisionId, divisionName) {
-  const {data: users} = await SB.from('users').select('id,full_name,employee_id').eq('is_active',true).order('full_name');
-  openModal(`Edit Zone — ${divisionName}`,`
-    <div class="form-group"><label>Zone Name</label><input class="form-control" id="ez-name" value="${esc(name)}"/></div>
-    <div class="form-group"><label>Before-Photo Employee</label>
-      <select class="form-control" id="ez-before"><option value="">— Select —</option>
-        ${(users||[]).map(u=>`<option value="${u.id}"${u.id===beforeId?' selected':''}>${u.full_name} (${u.employee_id})</option>`).join('')}</select></div>
-    <div class="form-group"><label>Zonal Manager</label>
-      <select class="form-control" id="ez-zm"><option value="">— Select —</option>
-        ${(users||[]).map(u=>`<option value="${u.id}"${u.id===zmId?' selected':''}>${u.full_name} (${u.employee_id})</option>`).join('')}</select></div>`,
+function editLevel(id, name, rank){
+  openModal('Edit Hierarchy Level',`
+    <div class="form-group"><label>Level Name</label><input class="form-control" id="ehl-name" value="${esc(name)}"/></div>
+    <div class="form-group"><label>Rank</label><input class="form-control" id="ehl-rank" type="number" value="${rank}" min="1"/></div>`,
     [{label:'Save', action: async ()=>{
-      const n = document.getElementById('ez-name').value.trim();
-      const before = document.getElementById('ez-before').value||null;
-      const zm = document.getElementById('ez-zm').value||null;
+      const n = document.getElementById('ehl-name').value.trim();
+      const r = parseInt(document.getElementById('ehl-rank').value)||1;
       if(!n) return toast('Name required.','error');
-      await SB.from('zones').update({name:n, before_user_id:before, zonal_manager_id:zm}).eq('id', zoneId);
-      toast('Saved!','success'); closeModal(); await loadDivisions();
+      await SB.from('hierarchy_levels').update({name:n, rank:r}).eq('id', id);
+      toast('Saved!','success'); closeModal(); await loadHierarchyLevels();
     }, style:'btn-primary'}]);
 }
 
-async function deleteZone(zoneId, divisionId, divisionName) {
-  if(!confirm('Delete this zone?')) return;
-  await SB.from('zones').delete().eq('id', zoneId);
-  toast('Deleted.','success'); await loadDivisions();
+async function deleteLevel(id, name) {
+  if(!confirm(`Delete level "${name}"? Users assigned to it will become unassigned.`)) return;
+  await SB.from('hierarchy_levels').delete().eq('id', id);
+  toast('Deleted.','success'); await loadHierarchyLevels();
 }
 
 /* ═══════════════════════════════════════════════════════════
-   5S PHOTO PROJECTS — ALL PROJECTS (admin/manager creation & list)
+   5S ZONE TRACKER — ZONES (flat list, admin assigns Zone Manager)
 ═══════════════════════════════════════════════════════════ */
-async function pagePhotoProjects() {
+async function pageZones() {
   document.getElementById('main-content').innerHTML = `
-    <div class="page-header"><h1>5S Photo Projects</h1><p>Fixed Point Photo (FPP), Worst Point Photo (WPP), and Wet Floor Photo (WFP) projects.</p></div>
+    <div class="page-header"><h1>Zones</h1><p>Create zones and assign a Zone Manager to each. Any user with "Upload Before Photos" permission can upload Before photos for any zone.</p></div>
     <div class="card">
-      <div class="card-header"><h2>All Projects</h2>
+      <div class="card-header"><h2>All Zones</h2>
+        ${can('manage_zones')?'<button class="btn btn-primary btn-sm" onclick="openCreateZone()">+ Add Zone</button>':''}
+      </div>
+      <div class="card-body table-wrap" id="zone-list">Loading…</div>
+    </div>`;
+  await loadZonesList();
+}
+
+async function loadZonesList() {
+  const {data} = await SB.from('zones')
+    .select('id,name,is_active,zone_manager_id,users(full_name,employee_id)')
+    .order('name');
+  const el = document.getElementById('zone-list');
+  if (!data || data.length === 0) {
+    el.innerHTML = '<div class="empty-state"><div class="icon">🗺️</div><p>No zones yet.</p></div>';
+    return;
+  }
+  el.innerHTML = `<table>
+    <thead><tr><th>Zone</th><th>Zone Manager</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody>${data.map(z=>`<tr>
+      <td><strong>${z.name}</strong></td>
+      <td>${z.users?.full_name ? `${z.users.full_name} (${z.users.employee_id})` : '<span style="color:var(--gray-400)">Not assigned</span>'}</td>
+      <td>${z.is_active?'<span class="badge badge-green">Active</span>':'<span class="badge badge-gray">Inactive</span>'}</td>
+      <td class="flex-row">
+        ${can('manage_zones')?`
+          <button class="btn btn-ghost btn-sm" onclick="editZone('${z.id}','${esc(z.name)}','${z.zone_manager_id||''}',${z.is_active})">Edit</button>
+          <button class="btn btn-ghost btn-sm text-red" onclick="deleteZone('${z.id}','${esc(z.name)}')">Delete</button>`:'—'}
+      </td>
+    </tr>`).join('')}</tbody></table>`;
+}
+
+async function openCreateZone() {
+  const {data: users} = await SB.from('users').select('id,full_name,employee_id').eq('is_active',true).order('full_name');
+  openModal('Add Zone', `
+    <div class="form-group"><label>Zone Name</label><input class="form-control" id="zn-name" placeholder="e.g. Zone 1 — Assembly Line"/></div>
+    <div class="form-group"><label>Zone Manager</label>
+      <select class="form-control" id="zn-manager"><option value="">— Select —</option>
+        ${(users||[]).map(u=>`<option value="${u.id}">${u.full_name} (${u.employee_id})</option>`).join('')}</select></div>`,
+    [{label:'Create Zone', action: async ()=>{
+      const name = document.getElementById('zn-name').value.trim();
+      const mgr = document.getElementById('zn-manager').value||null;
+      if(!name) return toast('Zone name required.','error');
+      const {error} = await SB.from('zones').insert({name, zone_manager_id:mgr, created_by:SESSION.user.id});
+      if(error) return toast('Error: '+error.message,'error');
+      await auditLog('ZONE_CREATED','zones',null,{name});
+      toast('Zone created!','success'); closeModal(); await loadZonesList();
+    }, style:'btn-primary'}]);
+}
+
+async function editZone(zoneId, name, mgrId, isActive) {
+  const {data: users} = await SB.from('users').select('id,full_name,employee_id').eq('is_active',true).order('full_name');
+  openModal('Edit Zone', `
+    <div class="form-group"><label>Zone Name</label><input class="form-control" id="ez-name" value="${esc(name)}"/></div>
+    <div class="form-group"><label>Zone Manager</label>
+      <select class="form-control" id="ez-manager"><option value="">— Select —</option>
+        ${(users||[]).map(u=>`<option value="${u.id}"${u.id===mgrId?' selected':''}>${u.full_name} (${u.employee_id})</option>`).join('')}</select></div>
+    <div class="form-group"><div class="checkbox-row"><input type="checkbox" id="ez-active" ${isActive?'checked':''}/><label for="ez-active">Active</label></div></div>`,
+    [{label:'Save', action: async ()=>{
+      const n = document.getElementById('ez-name').value.trim();
+      const mgr = document.getElementById('ez-manager').value||null;
+      const active = document.getElementById('ez-active').checked;
+      if(!n) return toast('Name required.','error');
+      await SB.from('zones').update({name:n, zone_manager_id:mgr, is_active:active}).eq('id', zoneId);
+      toast('Saved!','success'); closeModal(); await loadZonesList();
+    }, style:'btn-primary'}]);
+}
+
+async function deleteZone(zoneId, name) {
+  if(!confirm(`Delete zone "${name}"? This removes all its work records too.`)) return;
+  await SB.from('zones').delete().eq('id', zoneId);
+  toast('Deleted.','success'); await loadZonesList();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   5S ZONE TRACKER — ALL WORK RECORDS (admin/manager creation & list)
+═══════════════════════════════════════════════════════════ */
+async function pageZoneRecords() {
+  document.getElementById('main-content').innerHTML = `
+    <div class="page-header"><h1>5S Work Records</h1><p>Fixed Point Photo (FPP — 90 days), Worst Point Photo (WPP — 48 hrs), Wet Floor Photo (WFP — 48 hrs).</p></div>
+    <div class="card">
+      <div class="card-header"><h2>All Work Records</h2>
         <div class="flex-row">
-          <select class="search-input" id="pp-filter-type" onchange="loadPhotoProjectsList()">
+          <select class="search-input" id="zwr-filter-type" onchange="loadZoneRecordsList()">
             <option value="">All Types</option>
             <option value="FPP">FPP — Fixed Point Photo</option>
             <option value="WPP">WPP — Worst Point Photo</option>
             <option value="WFP">WFP — Wet Floor Photo</option>
           </select>
-          <button class="btn btn-primary btn-sm" onclick="openCreatePhotoProject()">+ New Project</button>
+          <select class="search-input" id="zwr-sort" onchange="loadZoneRecordsList()">
+            <option value="due_asc">Sort: Nearest Deadline</option>
+            <option value="created_desc">Sort: Newest First</option>
+          </select>
+          <button class="btn btn-primary btn-sm" onclick="openCreateZoneRecord()">+ New Work Record</button>
         </div>
       </div>
-      <div class="card-body table-wrap" id="pp-list">Loading…</div>
+      <div class="card-body table-wrap" id="zwr-list">Loading…</div>
     </div>`;
-  await loadPhotoProjectsList();
+  await loadZoneRecordsList();
 }
 
-async function loadPhotoProjectsList() {
-  const typeFilter = document.getElementById('pp-filter-type')?.value || '';
-  let q = SB.from('v_photo_projects').select('*').order('created_at',{ascending:false});
-  if (typeFilter) q = q.eq('project_type', typeFilter);
+async function loadZoneRecordsList() {
+  const typeFilter = document.getElementById('zwr-filter-type')?.value || '';
+  const sortMode = document.getElementById('zwr-sort')?.value || 'due_asc';
+  let q = SB.from('v_zone_work_records').select('*');
+  if (typeFilter) q = q.eq('work_type', typeFilter);
+  q = sortMode === 'due_asc' ? q.order('due_at',{ascending:true}) : q.order('created_at',{ascending:false});
   const {data} = await q;
-  const el = document.getElementById('pp-list');
+  const el = document.getElementById('zwr-list');
   if (!data || data.length === 0) {
-    el.innerHTML = '<div class="empty-state"><div class="icon">🖼️</div><p>No photo projects yet.</p></div>';
+    el.innerHTML = '<div class="empty-state"><div class="icon">🖼️</div><p>No work records yet.</p></div>';
     return;
   }
   el.innerHTML = `<table>
-    <thead><tr><th>Title</th><th>Type</th><th>Division / Zone</th><th>Progress</th><th>Status</th><th>Due</th><th>Actions</th></tr></thead>
-    <tbody>${data.map(p=>`<tr>
-      <td><strong>${p.title}</strong></td>
-      <td><span class="chip">${p.project_type}</span></td>
-      <td>${p.division_name} / ${p.zone_name}</td>
-      <td>${p.uploaded_stage_count}/${p.total_stage_count} photos</td>
-      <td>${p.is_overdue && p.status!=='approved' ? PP_STATUS_BADGE.overdue : (PP_STATUS_BADGE[p.status]||p.status)}</td>
-      <td>${p.due_date?fmtDate(p.due_date):'—'}</td>
-      <td><button class="btn btn-ghost btn-sm" onclick="openPhotoProject('${p.id}')">View</button></td>
+    <thead><tr><th>Title</th><th>Type</th><th>Zone</th><th>Serial #</th><th>Status</th><th>Due</th><th>Rev</th><th>Actions</th></tr></thead>
+    <tbody>${data.map(r=>`<tr>
+      <td><strong>${r.title}</strong></td>
+      <td><span class="chip">${r.work_type}</span></td>
+      <td>${r.zone_name}</td>
+      <td><code style="font-size:.75rem">${r.serial_number}</code></td>
+      <td>${r.is_overdue && r.status!=='approved' ? WORK_STATUS_BADGE.overdue : (WORK_STATUS_BADGE[r.status]||r.status)}</td>
+      <td>${fmtDateTime(r.due_at)}</td>
+      <td>${r.revision_number}</td>
+      <td><button class="btn btn-ghost btn-sm" onclick="openZoneRecord('${r.id}')">View</button></td>
     </tr>`).join('')}</tbody></table>`;
 }
 
-async function openCreatePhotoProject() {
-  const {data: divisions} = await SB.from('divisions').select('id,name').order('name');
-  openModal('New Photo Project', `
-    <div class="form-group"><label>Project Type</label>
-      <select class="form-control" id="np-type" onchange="onPPTypeChange()">
-        <option value="FPP">FPP — Fixed Point Photo (min 6 stages, 90-day default)</option>
-        <option value="WPP">WPP — Worst Point Photo (1 before + 1 after)</option>
-        <option value="WFP">WFP — Wet Floor Photo (1 before + 1 after)</option>
+async function openCreateZoneRecord() {
+  const {data: zones} = await SB.from('zones').select('id,name').eq('is_active',true).order('name');
+  openModal('New 5S Work Record', `
+    <div class="form-group"><label>Work Type</label>
+      <select class="form-control" id="nz-type">
+        <option value="FPP">FPP — Fixed Point Photo (90-day deadline)</option>
+        <option value="WPP">WPP — Worst Point Photo (48-hr deadline)</option>
+        <option value="WFP">WFP — Wet Floor Photo (48-hr deadline)</option>
       </select></div>
-    <div class="form-group"><label>Title</label><input class="form-control" id="np-title" placeholder="e.g. Tool Crib Cleanup"/></div>
-    <div class="form-group"><label>Division</label>
-      <select class="form-control" id="np-division" onchange="onPPDivisionChange()">
-        <option value="">— Select —</option>
-        ${(divisions||[]).map(d=>`<option value="${d.id}">${d.name}</option>`).join('')}
-      </select></div>
+    <div class="form-group"><label>Title</label><input class="form-control" id="nz-title" placeholder="e.g. Tool Crib Cleanup"/></div>
     <div class="form-group"><label>Zone</label>
-      <select class="form-control" id="np-zone"><option value="">— Select a division first —</option></select></div>
-    <div class="form-group"><label>Deadline (days)</label>
-      <input class="form-control" id="np-deadline" type="number" value="90" min="1"/></div>
-    <div class="form-group" id="np-stages-wrap">
-      <label>After-Photo Stages (FPP requires min 6)</label>
-      <div id="np-stages"></div>
-      <button type="button" class="btn btn-outline btn-sm" style="margin-top:6px" onclick="addStageRow()">+ Add Stage</button>
-    </div>`,
-    [{label:'Create Project', action: createPhotoProject, style:'btn-primary'}]
+      <select class="form-control" id="nz-zone"><option value="">— Select —</option>
+        ${(zones||[]).map(z=>`<option value="${z.id}">${z.name}</option>`).join('')}</select></div>`,
+    [{label:'Create', action: createZoneRecord, style:'btn-primary'}]
   );
-  onPPTypeChange();
 }
 
-function onPPTypeChange() {
-  const type = document.getElementById('np-type').value;
-  const wrap = document.getElementById('np-stages-wrap');
-  const stagesDiv = document.getElementById('np-stages');
-  stagesDiv.innerHTML = '';
-  if (type === 'FPP') {
-    wrap.style.display = '';
-    for (let i=1;i<=6;i++) addStageRow(`Stage ${i}`);
-  } else {
-    wrap.style.display = 'none';
-    stagesDiv.innerHTML = '';
-  }
-}
+async function createZoneRecord() {
+  const type = document.getElementById('nz-type').value;
+  const title = document.getElementById('nz-title').value.trim();
+  const zoneId = document.getElementById('nz-zone').value;
+  if (!title || !zoneId) return toast('Fill in all fields.','error');
 
-function addStageRow(defaultLabel) {
-  const stagesDiv = document.getElementById('np-stages');
-  const idx = stagesDiv.children.length + 1;
-  const row = document.createElement('div');
-  row.className = 'flex-row';
-  row.style.marginBottom = '6px';
-  row.innerHTML = `<input class="form-control stage-label-input" value="${defaultLabel||('Stage '+idx)}" style="flex:1"/>
-    <button type="button" class="btn btn-ghost btn-sm text-red" onclick="this.parentElement.remove()">✕</button>`;
-  stagesDiv.appendChild(row);
-}
+  const deadlineHours = WORK_TYPE_DEADLINE_HOURS[type];
+  const dueAt = new Date(Date.now() + deadlineHours*60*60*1000).toISOString();
 
-async function onPPDivisionChange() {
-  const divId = document.getElementById('np-division').value;
-  const zoneSel = document.getElementById('np-zone');
-  if (!divId) { zoneSel.innerHTML = '<option value="">— Select a division first —</option>'; return; }
-  const {data: zones} = await SB.from('zones').select('id,name').eq('division_id', divId).order('name');
-  zoneSel.innerHTML = '<option value="">— Select —</option>' + (zones||[]).map(z=>`<option value="${z.id}">${z.name}</option>`).join('');
-}
+  // generate serial number: EP-<TYPE>-<sequence>
+  const {count} = await SB.from('zone_work_records').select('id',{count:'exact',head:true}).eq('work_type', type);
+  const serial = `EP-${type}-${String((count||0)+1).padStart(4,'0')}`;
 
-async function createPhotoProject() {
-  const type = document.getElementById('np-type').value;
-  const title = document.getElementById('np-title').value.trim();
-  const divisionId = document.getElementById('np-division').value;
-  const zoneId = document.getElementById('np-zone').value;
-  const deadlineDays = parseInt(document.getElementById('np-deadline').value) || 90;
-
-  if (!title || !divisionId || !zoneId) return toast('Fill in all required fields.','error');
-
-  const stageLabels = Array.from(document.querySelectorAll('.stage-label-input')).map(i=>i.value.trim()).filter(Boolean);
-  if (type === 'FPP' && stageLabels.length < 6) return toast('FPP requires at least 6 after-photo stages.','error');
-
-  const dueDate = new Date(Date.now() + deadlineDays*24*60*60*1000).toISOString();
-
-  const {data: proj, error} = await SB.from('photo_projects').insert({
-    project_type: type, title, division_id: divisionId, zone_id: zoneId,
-    deadline_days: deadlineDays, due_date: dueDate, status: 'awaiting_before',
+  const {data: rec, error} = await SB.from('zone_work_records').insert({
+    zone_id: zoneId, work_type: type, title, serial_number: serial,
+    deadline_hours: deadlineHours, due_at: dueAt, status: 'awaiting_before',
     created_by: SESSION.user.id
   }).select().single();
   if (error) return toast('Error: '+error.message,'error');
 
-  // Create stages: 1 before stage always; after stages from labels (or default 1 for WPP/WFP)
-  const stagesToInsert = [{ photo_project_id: proj.id, stage_kind:'before', stage_label:'Before Photo', sort_order:0 }];
-  if (type === 'FPP') {
-    stageLabels.forEach((label, i) => stagesToInsert.push({ photo_project_id: proj.id, stage_kind:'after', stage_label: label, sort_order: i+1 }));
-  } else {
-    stagesToInsert.push({ photo_project_id: proj.id, stage_kind:'after', stage_label:'After Photo', sort_order:1 });
-  }
-  await SB.from('photo_project_stages').insert(stagesToInsert);
-
-  await auditLog('PHOTO_PROJECT_CREATED','photo_projects', proj.id, {type, title});
-  toast('Photo project created!','success');
+  await auditLog('ZONE_RECORD_CREATED','zone_work_records', rec.id, {type, title});
+  toast('Work record created!','success');
   closeModal();
-  await loadPhotoProjectsList();
+  await loadZoneRecordsList();
 }
 
-async function openPhotoProject(projectId) {
-  const {data: proj} = await SB.from('v_photo_projects').select('*').eq('id', projectId).single();
-  const {data: stages} = await SB.from('photo_project_stages').select('*').eq('photo_project_id', projectId).order('sort_order');
+async function openZoneRecord(recordId) {
+  const {data: rec} = await SB.from('v_zone_work_records').select('*').eq('id', recordId).single();
 
-  const beforeStages = (stages||[]).filter(s=>s.stage_kind==='before');
-  const afterStages  = (stages||[]).filter(s=>s.stage_kind==='after');
+  const isZoneManager = rec.zone_manager_name && (await isUserZoneManagerForZone(rec.zone_id));
+  const isCeo = can('is_ceo');
+  const canUploadBefore = can('can_upload_before') && rec.status === 'awaiting_before';
+  const canUploadAfter  = isZoneManager && (rec.status === 'awaiting_after' || rec.status === 'rejected');
+  const canCeoReview    = isCeo && rec.status === 'awaiting_ceo_review';
 
-  const isZonalManager = await isUserZonalManagerForZone(proj.zone_id);
-  const isBeforeUser = await isUserBeforeUserForZone(proj.zone_id);
-  const isCeo = can('ceo_approval');
-
-  const canUploadBefore = (isBeforeUser || SESSION.user.is_admin) && proj.status === 'awaiting_before';
-  const canUploadAfter  = (isZonalManager || SESSION.user.is_admin) && (proj.status === 'awaiting_after' || proj.status === 'rejected');
-  const canCeoReview    = isCeo && proj.status === 'awaiting_ceo_review';
-
-  openModal(`${proj.project_type} — ${proj.title}`, `
+  openModal(`${rec.work_type} — ${rec.title}`, `
     <div class="flex-row" style="margin-bottom:14px">
-      ${PP_STATUS_BADGE[proj.status]||proj.status}
-      <span class="chip">${proj.division_name} / ${proj.zone_name}</span>
-      ${proj.due_date?`<span class="chip">Due: ${fmtDate(proj.due_date)}</span>`:''}
+      ${rec.is_overdue && rec.status!=='approved' ? WORK_STATUS_BADGE.overdue : (WORK_STATUS_BADGE[rec.status]||rec.status)}
+      <span class="chip">${rec.zone_name}</span>
+      <span class="chip">Serial: ${rec.serial_number}</span>
+      <span class="chip">Rev ${rec.revision_number}</span>
+      <span class="chip">Due: ${fmtDateTime(rec.due_at)}</span>
     </div>
     <h4 style="font-size:.82rem;text-transform:uppercase;color:var(--gray-400);margin-bottom:8px">Before</h4>
-    ${beforeStages.map(s=>renderStageBlock(s, canUploadBefore, projectId)).join('')}
+    <div class="checklist-item">
+      <div class="item-desc" style="width:100%">
+        ${rec.before_photo_url ? `
+          <img src="${rec.before_photo_url}" class="photo-preview" style="width:160px;height:160px" onclick="window.open('${rec.before_photo_url}')"/>
+          <div style="font-size:.72rem;color:var(--gray-400);margin-top:4px">📅 ${fmtDateTime(rec.before_uploaded_at)} — ${rec.before_uploaded_by_name||''}</div>
+        ` : `<div style="font-size:.78rem;color:var(--gray-400)">No before photo uploaded yet.</div>`}
+        ${canUploadBefore ? `<input type="file" accept="image/*" capture="environment" style="margin-top:8px;font-size:.78rem" onchange="uploadZonePhoto('${recordId}','before',this)"/>` : ''}
+      </div>
+    </div>
     <hr class="divider"/>
     <h4 style="font-size:.82rem;text-transform:uppercase;color:var(--gray-400);margin-bottom:8px">After</h4>
-    ${afterStages.map(s=>renderStageBlock(s, canUploadAfter, projectId)).join('')}
-    ${proj.ceo_remarks ? `<hr class="divider"/><div style="padding:10px;background:var(--red-light);border-radius:6px;font-size:.85rem;color:var(--red)">CEO Remarks: ${proj.ceo_remarks}</div>`:''}
+    <div class="checklist-item">
+      <div class="item-desc" style="width:100%">
+        ${rec.after_photo_url ? `
+          <img src="${rec.after_photo_url}" class="photo-preview" style="width:160px;height:160px" onclick="window.open('${rec.after_photo_url}')"/>
+          <div style="font-size:.72rem;color:var(--gray-400);margin-top:4px">📅 ${fmtDateTime(rec.after_uploaded_at)} — ${rec.after_uploaded_by_name||''}</div>
+        ` : `<div style="font-size:.78rem;color:var(--gray-400)">No after photo uploaded yet.</div>`}
+        ${canUploadAfter ? `<input type="file" accept="image/*" capture="environment" style="margin-top:8px;font-size:.78rem" onchange="uploadZonePhoto('${recordId}','after',this)"/>` : ''}
+      </div>
+    </div>
+    ${rec.ceo_remarks ? `<hr class="divider"/><div style="padding:10px;background:var(--red-light);border-radius:6px;font-size:.85rem;color:var(--red)">CEO Remarks: ${rec.ceo_remarks}</div>`:''}
     `,
     [
-      ...(canUploadBefore ? [{label:'Submit Before Photos', action:()=>submitBeforePhotos(projectId), style:'btn-primary'}] : []),
-      ...(canUploadAfter ? [{label:'Submit for CEO Review', action:()=>submitAfterPhotos(projectId), style:'btn-primary'}] : []),
+      ...(can('is_ceo') && rec.status !== 'approved' ? [{label:'📩 Send Reminder', action:()=>sendCeoPing(recordId), style:'btn-outline'}] : []),
       ...(canCeoReview ? [
-        {label:'Reject (Rework)', action:()=>ceoRejectPrompt(projectId), style:'btn-danger'},
-        {label:'Approve', action:()=>ceoApprove(projectId), style:'btn-success'},
+        {label:'Reject (Rework)', action:()=>ceoRejectZonePrompt(recordId), style:'btn-danger'},
+        {label:'Approve', action:()=>ceoApproveZone(recordId), style:'btn-success'},
       ] : []),
     ]
   );
 }
 
-function renderStageBlock(stage, editable, projectId) {
-  return `<div class="checklist-item">
-    <div class="item-desc" style="width:100%">
-      <div style="font-weight:600;margin-bottom:6px">${stage.stage_label}</div>
-      ${stage.photo_url ? `
-        <img src="${stage.photo_url}" class="photo-preview" style="width:140px;height:140px" onclick="window.open('${stage.photo_url}')"/>
-        <div style="font-size:.72rem;color:var(--gray-400);margin-top:4px">📅 ${stage.uploaded_at ? fmtDateTime(stage.uploaded_at) : ''}</div>
-      ` : `<div style="font-size:.78rem;color:var(--gray-400);margin-bottom:6px">No photo uploaded yet</div>`}
-      ${editable ? `<input type="file" accept="image/*" capture="environment" style="margin-top:8px;font-size:.78rem" onchange="uploadStagePhoto('${stage.id}','${projectId}',this)"/>` : ''}
-    </div>
-  </div>`;
+async function isUserZoneManagerForZone(zoneId) {
+  const {data} = await SB.from('zones').select('zone_manager_id').eq('id', zoneId).single();
+  return data?.zone_manager_id === SESSION.user.id;
 }
 
-async function isUserZonalManagerForZone(zoneId) {
-  const {data} = await SB.from('zones').select('zonal_manager_id').eq('id', zoneId).single();
-  return data?.zonal_manager_id === SESSION.user.id;
-}
-async function isUserBeforeUserForZone(zoneId) {
-  const {data} = await SB.from('zones').select('before_user_id').eq('id', zoneId).single();
-  return data?.before_user_id === SESSION.user.id;
-}
-
-async function uploadStagePhoto(stageId, projectId, input) {
+async function uploadZonePhoto(recordId, kind, input) {
   const file = input.files[0];
   if (!file) return;
   toast('Uploading…','info');
   const ext = file.name.split('.').pop();
-  const path = `photo-projects/${projectId}/${stageId}.${ext}`;
+  const path = `zone-records/${recordId}/${kind}.${ext}`;
   const {error} = await SB.storage.from('training-photos').upload(path, file, {upsert:true});
   if (error) return toast('Upload failed: '+error.message,'error');
   const {data:u} = SB.storage.from('training-photos').getPublicUrl(path);
-  await SB.from('photo_project_stages').update({
-    photo_url: u.publicUrl, uploaded_by: SESSION.user.id, uploaded_at: new Date().toISOString()
-  }).eq('id', stageId);
-  toast('Photo uploaded!','success');
-  openPhotoProject(projectId);
-}
 
-async function submitBeforePhotos(projectId) {
-  const {data: stages} = await SB.from('photo_project_stages').select('id,photo_url').eq('photo_project_id',projectId).eq('stage_kind','before');
-  const missing = (stages||[]).some(s=>!s.photo_url);
-  if (missing) return toast('Upload all before photos first.','error');
-  await SB.from('photo_projects').update({status:'awaiting_after'}).eq('id', projectId);
-  await auditLog('PP_BEFORE_SUBMITTED','photo_projects', projectId, {});
-  toast('Before photos submitted! Zonal manager notified.','success');
+  if (kind === 'before') {
+    await SB.from('zone_work_records').update({
+      before_photo_url: u.publicUrl, before_uploaded_by: SESSION.user.id, before_uploaded_at: new Date().toISOString(),
+      status: 'awaiting_after'
+    }).eq('id', recordId);
+    await auditLog('ZONE_BEFORE_UPLOADED','zone_work_records', recordId, {});
+    toast('Before photo uploaded! Zone manager notified.','success');
+  } else {
+    await SB.from('zone_work_records').update({
+      after_photo_url: u.publicUrl, after_uploaded_by: SESSION.user.id, after_uploaded_at: new Date().toISOString(),
+      status: 'awaiting_ceo_review'
+    }).eq('id', recordId);
+    await auditLog('ZONE_AFTER_UPLOADED','zone_work_records', recordId, {});
+    toast('After photo uploaded! CEO notified for review.','success');
+  }
   closeModal();
-  loadPhotoProjectsList().catch(()=>{});
-  pageMyPhotoTasks().catch(()=>{});
+  openZoneRecord(recordId);
 }
 
-async function submitAfterPhotos(projectId) {
-  const {data: stages} = await SB.from('photo_project_stages').select('id,photo_url').eq('photo_project_id',projectId).eq('stage_kind','after');
-  const missing = (stages||[]).some(s=>!s.photo_url);
-  if (missing) return toast('Upload all after photos first.','error');
-  await SB.from('photo_projects').update({status:'awaiting_ceo_review'}).eq('id', projectId);
-  await auditLog('PP_AFTER_SUBMITTED','photo_projects', projectId, {});
-  toast('Submitted for CEO review!','success');
-  closeModal();
-  loadPhotoProjectsList().catch(()=>{});
-  pageMyPhotoTasks().catch(()=>{});
-}
-
-async function ceoApprove(projectId) {
-  await SB.from('photo_projects').update({
+async function ceoApproveZone(recordId) {
+  await SB.from('zone_work_records').update({
     status:'approved', ceo_reviewed_by:SESSION.user.id, ceo_reviewed_at:new Date().toISOString(), ceo_remarks:null
-  }).eq('id', projectId);
-  await auditLog('PP_APPROVED','photo_projects', projectId, {});
-  toast('Project approved!','success');
+  }).eq('id', recordId);
+  await auditLog('ZONE_RECORD_APPROVED','zone_work_records', recordId, {});
+  toast('Approved!','success');
   closeModal();
   pageCeoDashboard().catch(()=>{});
 }
 
-function ceoRejectPrompt(projectId) {
+function ceoRejectZonePrompt(recordId) {
   openModal('Reject — Send Back for Rework', `
     <div class="form-group"><label>Comment</label>
-      <textarea class="form-control" id="ceo-reject-remarks" placeholder="What needs to be redone…"></textarea></div>`,
+      <textarea class="form-control" id="ceo-zone-reject-remarks" placeholder="What needs to be redone…"></textarea></div>`,
     [{label:'Reject', action: async ()=>{
-      const remarks = document.getElementById('ceo-reject-remarks').value.trim();
+      const remarks = document.getElementById('ceo-zone-reject-remarks').value.trim();
       if(!remarks) return toast('Enter a comment.','error');
-      await SB.from('photo_projects').update({
-        status:'rejected', ceo_reviewed_by:SESSION.user.id, ceo_reviewed_at:new Date().toISOString(), ceo_remarks:remarks
-      }).eq('id', projectId);
-      await auditLog('PP_REJECTED','photo_projects', projectId, {remarks});
+
+      const {data: rec} = await SB.from('zone_work_records').select('*').eq('id', recordId).single();
+
+      // archive current revision
+      await SB.from('zone_work_revisions').insert({
+        zone_work_record_id: recordId, revision_number: rec.revision_number,
+        before_photo_url: rec.before_photo_url, after_photo_url: rec.after_photo_url, ceo_remarks: remarks
+      });
+
+      // bump to rework: keep before photo, clear after photo, increment revision
+      await SB.from('zone_work_records').update({
+        status:'rejected', ceo_reviewed_by:SESSION.user.id, ceo_reviewed_at:new Date().toISOString(),
+        ceo_remarks:remarks, after_photo_url:null, after_uploaded_by:null, after_uploaded_at:null,
+        revision_number: rec.revision_number + 1
+      }).eq('id', recordId);
+
+      await auditLog('ZONE_RECORD_REJECTED','zone_work_records', recordId, {remarks});
       toast('Sent back for rework.','success');
       closeModal();
       pageCeoDashboard().catch(()=>{});
     }, style:'btn-danger'}]);
 }
 
+async function sendCeoPing(recordId) {
+  const {data: rec} = await SB.from('v_zone_work_records').select('*').eq('id', recordId).single();
+  let targetUser = null;
+  if (rec.status === 'awaiting_after' || rec.status === 'rejected') {
+    const {data: zone} = await SB.from('zones').select('zone_manager_id').eq('id', rec.zone_id).single();
+    targetUser = zone?.zone_manager_id || null;
+  }
+  if (!targetUser) return toast('No specific user to ping at this stage.','error');
+  await SB.from('ceo_pings').insert({
+    zone_work_record_id: recordId, sent_by: SESSION.user.id, sent_to: targetUser,
+    message: `Reminder: "${rec.title}" (${rec.work_type}) needs attention.`
+  });
+  toast('Reminder sent!','success');
+}
+
 /* ═══════════════════════════════════════════════════════════
-   MY PHOTO TASKS (employee / zonal manager view)
+   MY ZONE TASKS (user / zone manager view)
 ═══════════════════════════════════════════════════════════ */
-async function pageMyPhotoTasks() {
+async function pageMyZoneTasks() {
   document.getElementById('main-content').innerHTML = `
-    <div class="page-header"><h1>My Photo Tasks</h1><p>Photo projects waiting on you.</p></div>
-    <div id="my-photo-list">Loading…</div>`;
+    <div class="page-header"><h1>My Zone Tasks</h1><p>5S work records waiting on you.</p></div>
+    <div id="my-pings"></div>
+    <div id="my-zone-list">Loading…</div>`;
 
-  const {data: zonesBefore} = await SB.from('zones').select('id,name,division_id,divisions(name)').eq('before_user_id', SESSION.user.id);
-  const {data: zonesManager} = await SB.from('zones').select('id,name,division_id,divisions(name)').eq('zonal_manager_id', SESSION.user.id);
-
-  const beforeZoneIds = (zonesBefore||[]).map(z=>z.id);
-  const mgrZoneIds = (zonesManager||[]).map(z=>z.id);
+  // pings
+  const {data: pings} = await SB.from('ceo_pings').select('*').eq('sent_to', SESSION.user.id).eq('is_read', false).order('created_at',{ascending:false});
+  const pingEl = document.getElementById('my-pings');
+  if (pings && pings.length > 0) {
+    pingEl.innerHTML = pings.map(p=>`
+      <div class="card" style="border-left:3px solid var(--red)">
+        <div class="card-body flex-row" style="justify-content:space-between">
+          <span>🔔 ${p.message}</span>
+          <button class="btn btn-ghost btn-sm" onclick="dismissPing('${p.id}')">Dismiss</button>
+        </div>
+      </div>`).join('');
+  } else { pingEl.innerHTML = ''; }
 
   let beforeTasks = [], afterTasks = [];
-  if (beforeZoneIds.length) {
-    const {data} = await SB.from('v_photo_projects').select('*').in('zone_id', beforeZoneIds).eq('status','awaiting_before');
+  if (can('can_upload_before')) {
+    const {data} = await SB.from('v_zone_work_records').select('*').eq('status','awaiting_before').order('due_at');
     beforeTasks = data || [];
   }
-  if (mgrZoneIds.length) {
-    const {data} = await SB.from('v_photo_projects').select('*').in('zone_id', mgrZoneIds).in('status',['awaiting_after','rejected']);
-    afterTasks = data || [];
+  if (can('is_zone_manager')) {
+    const {data: myZones} = await SB.from('zones').select('id').eq('zone_manager_id', SESSION.user.id);
+    const zoneIds = (myZones||[]).map(z=>z.id);
+    if (zoneIds.length) {
+      const {data} = await SB.from('v_zone_work_records').select('*').in('zone_id', zoneIds).in('status',['awaiting_after','rejected']).order('due_at');
+      afterTasks = data || [];
+    }
   }
 
-  const el = document.getElementById('my-photo-list');
+  const el = document.getElementById('my-zone-list');
   if (beforeTasks.length === 0 && afterTasks.length === 0) {
-    el.innerHTML = '<div class="empty-state"><div class="icon">📷</div><p>No photo tasks waiting on you.</p></div>';
+    el.innerHTML = '<div class="empty-state"><div class="icon">📷</div><p>No zone tasks waiting on you.</p></div>';
     return;
   }
-
   let html = '';
   if (beforeTasks.length > 0) {
     html += `<h3 style="font-size:.9rem;margin-bottom:10px">📷 Upload Before Photos</h3>`;
-    html += beforeTasks.map(p=>`
+    html += beforeTasks.map(r=>`
       <div class="card">
         <div class="card-header">
-          <div><h2>${p.title}</h2><small style="color:var(--gray-400)">${p.project_type} — ${p.division_name} / ${p.zone_name}</small></div>
-          <button class="btn btn-primary btn-sm" onclick="openPhotoProject('${p.id}')">Open</button>
+          <div><h2>${r.title}</h2><small style="color:var(--gray-400)">${r.work_type} — ${r.zone_name} — Due ${fmtDateTime(r.due_at)}</small></div>
+          <button class="btn btn-primary btn-sm" onclick="openZoneRecord('${r.id}')">Open</button>
         </div>
       </div>`).join('');
   }
   if (afterTasks.length > 0) {
     html += `<h3 style="font-size:.9rem;margin:16px 0 10px">🔧 Do the Work / Upload After Photos</h3>`;
-    html += afterTasks.map(p=>`
+    html += afterTasks.map(r=>`
       <div class="card">
         <div class="card-header">
-          <div><h2>${p.title}</h2><small style="color:var(--gray-400)">${p.project_type} — ${p.division_name} / ${p.zone_name}</small></div>
-          <div class="flex-row">${p.status==='rejected'?'<span class="badge badge-red">Rework Needed</span>':''}
-            <button class="btn btn-primary btn-sm" onclick="openPhotoProject('${p.id}')">Open</button></div>
+          <div><h2>${r.title}</h2><small style="color:var(--gray-400)">${r.work_type} — ${r.zone_name} — Due ${fmtDateTime(r.due_at)}</small></div>
+          <div class="flex-row">${r.status==='rejected'?'<span class="badge badge-red">Rework Needed</span>':''}
+            <button class="btn btn-primary btn-sm" onclick="openZoneRecord('${r.id}')">Open</button></div>
         </div>
       </div>`).join('');
   }
   el.innerHTML = html;
+}
+
+async function dismissPing(pingId) {
+  await SB.from('ceo_pings').update({is_read:true}).eq('id', pingId);
+  pageMyZoneTasks();
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1735,27 +1783,29 @@ async function pageMyPhotoTasks() {
 ═══════════════════════════════════════════════════════════ */
 async function pageCeoDashboard() {
   document.getElementById('main-content').innerHTML = `
-    <div class="page-header"><h1>CEO Dashboard</h1><p>Cumulative 5S photo project tracking.</p></div>
+    <div class="page-header"><h1>CEO Dashboard</h1><p>Cumulative 5S zone tracking.</p></div>
     <div class="stats-grid" id="ceo-stats">Loading…</div>
     <div class="card">
       <div class="card-header"><h2>Awaiting My Review</h2></div>
       <div class="card-body table-wrap" id="ceo-review-list">Loading…</div>
     </div>
     <div class="card">
-      <div class="card-header"><h2>All Projects — Cumulative</h2></div>
+      <div class="card-header"><h2>All Work Records — Cumulative (sorted by nearest deadline)</h2>
+        <button class="btn btn-outline btn-sm" onclick="exportCeoReportPDF()">Export PDF</button>
+      </div>
       <div class="card-body table-wrap" id="ceo-all-list">Loading…</div>
     </div>`;
 
-  const {data: all} = await SB.from('v_photo_projects').select('*');
+  const {data: all} = await SB.from('v_zone_work_records').select('*');
   const total = all?.length || 0;
   const approved = (all||[]).filter(p=>p.status==='approved').length;
   const pending = (all||[]).filter(p=>p.status==='awaiting_ceo_review').length;
   const overdue = (all||[]).filter(p=>p.is_overdue).length;
   const byType = { FPP:0, WPP:0, WFP:0 };
-  (all||[]).forEach(p=>{ if(byType[p.project_type]!==undefined) byType[p.project_type]++; });
+  (all||[]).forEach(p=>{ if(byType[p.work_type]!==undefined) byType[p.work_type]++; });
 
   document.getElementById('ceo-stats').innerHTML = `
-    <div class="stat-card"><div class="val">${total}</div><div class="lbl">Total Projects</div></div>
+    <div class="stat-card"><div class="val">${total}</div><div class="lbl">Total Records</div></div>
     <div class="stat-card"><div class="val">${approved}</div><div class="lbl">Approved</div></div>
     <div class="stat-card"><div class="val text-red">${pending}</div><div class="lbl">Awaiting Review</div></div>
     <div class="stat-card"><div class="val text-red">${overdue}</div><div class="lbl">Overdue</div></div>
@@ -1763,25 +1813,30 @@ async function pageCeoDashboard() {
     <div class="stat-card"><div class="val">${byType.WPP}</div><div class="lbl">WPP</div></div>
     <div class="stat-card"><div class="val">${byType.WFP}</div><div class="lbl">WFP</div></div>`;
 
-  const {data: pendingReview} = await SB.from('v_photo_projects').select('*').eq('status','awaiting_ceo_review').order('created_at');
+  const {data: pendingReview} = await SB.from('v_zone_work_records').select('*').eq('status','awaiting_ceo_review').order('due_at');
   document.getElementById('ceo-review-list').innerHTML = (!pendingReview||pendingReview.length===0)
     ? '<div class="empty-state"><div class="icon">✅</div><p>Nothing waiting on you.</p></div>'
-    : `<table><thead><tr><th>Title</th><th>Type</th><th>Division/Zone</th><th>Submitted</th><th></th></tr></thead>
-       <tbody>${pendingReview.map(p=>`<tr>
-         <td>${p.title}</td><td><span class="chip">${p.project_type}</span></td>
-         <td>${p.division_name} / ${p.zone_name}</td><td>${fmtDate(p.created_at)}</td>
-         <td><button class="btn btn-primary btn-sm" onclick="openPhotoProject('${p.id}')">Review</button></td>
+    : `<table><thead><tr><th>Title</th><th>Type</th><th>Zone</th><th>Due</th><th></th></tr></thead>
+       <tbody>${pendingReview.map(r=>`<tr>
+         <td>${r.title}</td><td><span class="chip">${r.work_type}</span></td>
+         <td>${r.zone_name}</td><td>${fmtDateTime(r.due_at)}</td>
+         <td><button class="btn btn-primary btn-sm" onclick="openZoneRecord('${r.id}')">Review</button></td>
        </tr>`).join('')}</tbody></table>`;
 
   document.getElementById('ceo-all-list').innerHTML = (!all||all.length===0)
-    ? '<div class="empty-state"><p>No projects yet.</p></div>'
-    : `<table><thead><tr><th>Title</th><th>Type</th><th>Division/Zone</th><th>Status</th><th>Due</th></tr></thead>
-       <tbody>${all.sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,100).map(p=>`<tr>
-         <td>${p.title}</td><td><span class="chip">${p.project_type}</span></td>
-         <td>${p.division_name} / ${p.zone_name}</td>
-         <td>${p.is_overdue && p.status!=='approved' ? PP_STATUS_BADGE.overdue : (PP_STATUS_BADGE[p.status]||p.status)}</td>
-         <td>${p.due_date?fmtDate(p.due_date):'—'}</td>
+    ? '<div class="empty-state"><p>No records yet.</p></div>'
+    : `<table><thead><tr><th>Title</th><th>Type</th><th>Zone</th><th>Status</th><th>Due</th></tr></thead>
+       <tbody>${all.sort((a,b)=>new Date(a.due_at)-new Date(b.due_at)).slice(0,100).map(r=>`<tr>
+         <td>${r.title}</td><td><span class="chip">${r.work_type}</span></td>
+         <td>${r.zone_name}</td>
+         <td>${r.is_overdue && r.status!=='approved' ? WORK_STATUS_BADGE.overdue : (WORK_STATUS_BADGE[r.status]||r.status)}</td>
+         <td>${fmtDateTime(r.due_at)}</td>
        </tr>`).join('')}</tbody></table>`;
+}
+
+function exportCeoReportPDF() {
+  toast('Generating PDF…','info');
+  window.print();
 }
 
 /* ═══════════════════════════════
