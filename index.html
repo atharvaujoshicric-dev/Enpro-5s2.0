@@ -412,9 +412,10 @@ function can(perm) {
 function buildNav() {
   const nav = document.getElementById('sidebar-nav');
   nav.innerHTML = '';
+  const isAdmin = SESSION.user.is_admin;
   const pages = [
     {id:'dashboard',    label:'Dashboard',      icon:'📊', always:true},
-    {id:'my-trainings', label:'My Trainings',   icon:'📋', always:true},
+    {id:'my-trainings', label:'My Trainings',   icon:'📋', always:true, employeeOnly:true},
     {id:'approvals',    label:'Mark Complete',  icon:'✅', perm:'approve_completions'},
     {section:'Training Management'},
     {id:'users',        label:'Users',          icon:'👥', perm:'manage_users'},
@@ -424,9 +425,8 @@ function buildNav() {
     {id:'workflows',    label:'Workflows',      icon:'🔄', perm:'manage_workflows'},
     {id:'assign',       label:'Assign',         icon:'📌', perm:'assign_trainings'},
     {section:'5S Zone Tracker'},
-    {id:'my-zone-tasks', label:'My Zone Tasks',  icon:'📷', always:true},
-    {id:'zones',         label:'Zones',          icon:'🗺️', perm:'manage_zones'},
-    {id:'zone-records',  label:'All Work Records', icon:'🖼️', perm:'manage_zones'},
+    {id:'my-zone-tasks', label:'My Zone Tasks',  icon:'📷', always:true, employeeOnly:true},
+    {id:'zone-records',  label:'Work Records',   icon:'🖼️', perm:'manage_zones'},
     {id:'ceo-dashboard', label:'CEO Dashboard',  icon:'👑', perm:'is_ceo'},
     {section:'Admin', admin:true},
     {id:'reports',      label:'Reports',        icon:'📈', perm:'view_reports'},
@@ -434,14 +434,16 @@ function buildNav() {
   ];
   pages.forEach(p => {
     if (p.section) {
-      if (p.admin && !SESSION.user.is_admin) return;
+      if (p.admin && !isAdmin) return;
       const el = document.createElement('div');
       el.className = 'nav-section';
       el.textContent = p.section;
       nav.appendChild(el);
       return;
     }
-    if (!p.always && p.admin && !SESSION.user.is_admin) return;
+    // Admin never sees employee-only pages (My Trainings, My Zone Tasks) — admin works from the management pages instead
+    if (p.employeeOnly && isAdmin) return;
+    if (!p.always && p.admin && !isAdmin) return;
     if (p.perm && !can(p.perm)) return;
     const el = document.createElement('div');
     el.className = 'nav-item';
@@ -480,7 +482,6 @@ function renderPage(id) {
     'reports':        pageReports,
     'settings':       pageSettings,
     'my-zone-tasks':  pageMyZoneTasks,
-    'zones':          pageZones,
     'zone-records':   pageZoneRecords,
     'ceo-dashboard':  pageCeoDashboard,
   };
@@ -888,31 +889,55 @@ async function savePerms(userId) {
 ═══════════════════════════════ */
 async function pageDepartments() {
   document.getElementById('main-content').innerHTML = `
-    <div class="page-header"><h1>Departments</h1></div>
+    <div class="page-header"><h1>Departments & Zones</h1><p>Each department contains zones. Assign a Zone Manager to each zone.</p></div>
     <div class="card">
-      <div class="card-header"><h2>All Departments</h2>
-        ${can('manage_departments')?'<button class="btn btn-primary btn-sm" onclick="openCreateDept()">+ Add</button>':''}
+      <div class="card-header"><h2>Departments</h2>
+        ${can('manage_departments')?'<button class="btn btn-primary btn-sm" onclick="openCreateDept()">+ Add Department</button>':''}
       </div>
-      <div class="card-body table-wrap">
-        <table><thead><tr><th>Name</th><th>Description</th><th>Actions</th></tr></thead>
-        <tbody id="dept-tbody">Loading…</tbody></table>
-      </div>
+      <div class="card-body" id="dept-list">Loading…</div>
     </div>`;
   await loadDepts();
 }
 
 async function loadDepts() {
-  const {data} = await SB.from('departments').select('*').order('name');
-  const tb = document.getElementById('dept-tbody');
-  if (!data||data.length===0){tb.innerHTML='<tr><td colspan="3" style="text-align:center;color:var(--gray-400)">No departments yet.</td></tr>';return;}
-  tb.innerHTML = data.map(d=>`<tr>
-    <td><strong>${d.name}</strong></td><td>${d.description||'—'}</td>
-    <td class="flex-row">
-      ${can('manage_departments')?`
-        <button class="btn btn-ghost btn-sm" onclick='editDept(${JSON.stringify(d)})'>Edit</button>
-        <button class="btn btn-ghost btn-sm text-red" onclick="deleteDept('${d.id}','${esc(d.name)}')">Delete</button>`:'—'}
-    </td>
-  </tr>`).join('');
+  const {data: depts} = await SB.from('departments').select('*').order('name');
+  const el = document.getElementById('dept-list');
+  if (!depts || depts.length === 0) {
+    el.innerHTML = '<div class="empty-state"><div class="icon">🏢</div><p>No departments yet.</p></div>';
+    return;
+  }
+  let html = '';
+  for (const d of depts) {
+    const {data: zones} = await SB.from('v_zones').select('*').eq('department_id', d.id).order('name');
+    html += `
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-header">
+          <div><h2>🏢 ${d.name}</h2><small style="color:var(--gray-400)">${d.description||''}</small></div>
+          <div class="flex-row">
+            ${can('manage_departments')?`<button class="btn btn-ghost btn-sm" onclick='editDept(${JSON.stringify(d)})'>Edit</button>
+            <button class="btn btn-ghost btn-sm text-red" onclick="deleteDept('${d.id}','${esc(d.name)}')">Delete</button>`:''}
+            ${can('manage_zones')?`<button class="btn btn-outline btn-sm" onclick="openCreateZone('${d.id}','${esc(d.name)}')">+ Add Zone</button>`:''}
+          </div>
+        </div>
+        <div class="card-body table-wrap">
+          ${(!zones || zones.length===0) ? '<p style="color:var(--gray-400);font-size:.85rem">No zones in this department yet.</p>' : `
+          <table>
+            <thead><tr><th>Zone</th><th>Zone Manager</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody>${zones.map(z=>`<tr>
+              <td><strong>${z.name}</strong></td>
+              <td>${z.zone_manager_name ? `${z.zone_manager_name} (${z.zone_manager_employee_id})` : '<span style="color:var(--gray-400)">Not assigned</span>'}</td>
+              <td>${z.is_active?'<span class="badge badge-green">Active</span>':'<span class="badge badge-gray">Inactive</span>'}</td>
+              <td class="flex-row">
+                ${can('manage_zones')?`
+                <button class="btn btn-ghost btn-sm" onclick="editZone('${z.id}','${esc(z.name)}','${z.zone_manager_id||''}',${z.is_active},'${d.id}','${esc(d.name)}')">Edit</button>
+                <button class="btn btn-ghost btn-sm text-red" onclick="deleteZone('${z.id}','${esc(z.name)}','${d.id}','${esc(d.name)}')">Delete</button>`:'—'}
+              </td>
+            </tr>`).join('')}</tbody>
+          </table>`}
+        </div>
+      </div>`;
+  }
+  el.innerHTML = html;
 }
 
 function openCreateDept(){openModal('Add Department',`
@@ -939,9 +964,51 @@ function editDept(d){openModal('Edit Department',`
   },style:'btn-primary'}]);}
 
 async function deleteDept(id,name){
-  if(!confirm(`Delete "${name}"?`))return;
+  if(!confirm(`Delete "${name}"? This removes all its zones and work records too.`))return;
   await SB.from('departments').delete().eq('id',id);
   toast('Deleted.','success');await loadDepts();
+}
+
+async function openCreateZone(departmentId, departmentName) {
+  const {data: users} = await SB.from('users').select('id,full_name,employee_id').eq('is_active',true).order('full_name');
+  openModal(`Add Zone \u2014 ${departmentName}`, `
+    <div class="form-group"><label>Zone Name</label><input class="form-control" id="zn-name" placeholder="e.g. Zone 1 \u2014 Assembly Line"/></div>
+    <div class="form-group"><label>Zone Manager</label>
+      <select class="form-control" id="zn-manager"><option value="">\u2014 Select \u2014</option>
+        ${(users||[]).map(u=>`<option value="${u.id}">${u.full_name} (${u.employee_id})</option>`).join('')}</select></div>`,
+    [{label:'Create Zone', action: async ()=>{
+      const name = document.getElementById('zn-name').value.trim();
+      const mgr = document.getElementById('zn-manager').value||null;
+      if(!name) return toast('Zone name required.','error');
+      const {error} = await SB.from('zones').insert({department_id:departmentId, name, zone_manager_id:mgr, created_by:SESSION.user.id});
+      if(error) return toast('Error: '+error.message,'error');
+      await auditLog('ZONE_CREATED','zones',null,{name, department:departmentName});
+      toast('Zone created!','success'); closeModal(); await loadDepts();
+    }, style:'btn-primary'}]);
+}
+
+async function editZone(zoneId, name, mgrId, isActive, departmentId, departmentName) {
+  const {data: users} = await SB.from('users').select('id,full_name,employee_id').eq('is_active',true).order('full_name');
+  openModal(`Edit Zone \u2014 ${departmentName}`, `
+    <div class="form-group"><label>Zone Name</label><input class="form-control" id="ez-name" value="${esc(name)}"/></div>
+    <div class="form-group"><label>Zone Manager</label>
+      <select class="form-control" id="ez-manager"><option value="">\u2014 Select \u2014</option>
+        ${(users||[]).map(u=>`<option value="${u.id}"${u.id===mgrId?' selected':''}>${u.full_name} (${u.employee_id})</option>`).join('')}</select></div>
+    <div class="form-group"><div class="checkbox-row"><input type="checkbox" id="ez-active" ${isActive?'checked':''}/><label for="ez-active">Active</label></div></div>`,
+    [{label:'Save', action: async ()=>{
+      const n = document.getElementById('ez-name').value.trim();
+      const mgr = document.getElementById('ez-manager').value||null;
+      const active = document.getElementById('ez-active').checked;
+      if(!n) return toast('Name required.','error');
+      await SB.from('zones').update({name:n, zone_manager_id:mgr, is_active:active}).eq('id', zoneId);
+      toast('Saved!','success'); closeModal(); await loadDepts();
+    }, style:'btn-primary'}]);
+}
+
+async function deleteZone(zoneId, name, departmentId, departmentName) {
+  if(!confirm(`Delete zone "${name}"? This removes all its work records too.`)) return;
+  await SB.from('zones').delete().eq('id', zoneId);
+  toast('Deleted.','success'); await loadDepts();
 }
 
 /* ═══════════════════════════════
@@ -1393,86 +1460,6 @@ async function deleteLevel(id, name) {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   5S ZONE TRACKER — ZONES (flat list, admin assigns Zone Manager)
-═══════════════════════════════════════════════════════════ */
-async function pageZones() {
-  document.getElementById('main-content').innerHTML = `
-    <div class="page-header"><h1>Zones</h1><p>Create zones and assign a Zone Manager to each. Any user with "Upload Before Photos" permission can upload Before photos for any zone.</p></div>
-    <div class="card">
-      <div class="card-header"><h2>All Zones</h2>
-        ${can('manage_zones')?'<button class="btn btn-primary btn-sm" onclick="openCreateZone()">+ Add Zone</button>':''}
-      </div>
-      <div class="card-body table-wrap" id="zone-list">Loading…</div>
-    </div>`;
-  await loadZonesList();
-}
-
-async function loadZonesList() {
-  const {data} = await SB.from('zones')
-    .select('id,name,is_active,zone_manager_id,users(full_name,employee_id)')
-    .order('name');
-  const el = document.getElementById('zone-list');
-  if (!data || data.length === 0) {
-    el.innerHTML = '<div class="empty-state"><div class="icon">🗺️</div><p>No zones yet.</p></div>';
-    return;
-  }
-  el.innerHTML = `<table>
-    <thead><tr><th>Zone</th><th>Zone Manager</th><th>Status</th><th>Actions</th></tr></thead>
-    <tbody>${data.map(z=>`<tr>
-      <td><strong>${z.name}</strong></td>
-      <td>${z.users?.full_name ? `${z.users.full_name} (${z.users.employee_id})` : '<span style="color:var(--gray-400)">Not assigned</span>'}</td>
-      <td>${z.is_active?'<span class="badge badge-green">Active</span>':'<span class="badge badge-gray">Inactive</span>'}</td>
-      <td class="flex-row">
-        ${can('manage_zones')?`
-          <button class="btn btn-ghost btn-sm" onclick="editZone('${z.id}','${esc(z.name)}','${z.zone_manager_id||''}',${z.is_active})">Edit</button>
-          <button class="btn btn-ghost btn-sm text-red" onclick="deleteZone('${z.id}','${esc(z.name)}')">Delete</button>`:'—'}
-      </td>
-    </tr>`).join('')}</tbody></table>`;
-}
-
-async function openCreateZone() {
-  const {data: users} = await SB.from('users').select('id,full_name,employee_id').eq('is_active',true).order('full_name');
-  openModal('Add Zone', `
-    <div class="form-group"><label>Zone Name</label><input class="form-control" id="zn-name" placeholder="e.g. Zone 1 — Assembly Line"/></div>
-    <div class="form-group"><label>Zone Manager</label>
-      <select class="form-control" id="zn-manager"><option value="">— Select —</option>
-        ${(users||[]).map(u=>`<option value="${u.id}">${u.full_name} (${u.employee_id})</option>`).join('')}</select></div>`,
-    [{label:'Create Zone', action: async ()=>{
-      const name = document.getElementById('zn-name').value.trim();
-      const mgr = document.getElementById('zn-manager').value||null;
-      if(!name) return toast('Zone name required.','error');
-      const {error} = await SB.from('zones').insert({name, zone_manager_id:mgr, created_by:SESSION.user.id});
-      if(error) return toast('Error: '+error.message,'error');
-      await auditLog('ZONE_CREATED','zones',null,{name});
-      toast('Zone created!','success'); closeModal(); await loadZonesList();
-    }, style:'btn-primary'}]);
-}
-
-async function editZone(zoneId, name, mgrId, isActive) {
-  const {data: users} = await SB.from('users').select('id,full_name,employee_id').eq('is_active',true).order('full_name');
-  openModal('Edit Zone', `
-    <div class="form-group"><label>Zone Name</label><input class="form-control" id="ez-name" value="${esc(name)}"/></div>
-    <div class="form-group"><label>Zone Manager</label>
-      <select class="form-control" id="ez-manager"><option value="">— Select —</option>
-        ${(users||[]).map(u=>`<option value="${u.id}"${u.id===mgrId?' selected':''}>${u.full_name} (${u.employee_id})</option>`).join('')}</select></div>
-    <div class="form-group"><div class="checkbox-row"><input type="checkbox" id="ez-active" ${isActive?'checked':''}/><label for="ez-active">Active</label></div></div>`,
-    [{label:'Save', action: async ()=>{
-      const n = document.getElementById('ez-name').value.trim();
-      const mgr = document.getElementById('ez-manager').value||null;
-      const active = document.getElementById('ez-active').checked;
-      if(!n) return toast('Name required.','error');
-      await SB.from('zones').update({name:n, zone_manager_id:mgr, is_active:active}).eq('id', zoneId);
-      toast('Saved!','success'); closeModal(); await loadZonesList();
-    }, style:'btn-primary'}]);
-}
-
-async function deleteZone(zoneId, name) {
-  if(!confirm(`Delete zone "${name}"? This removes all its work records too.`)) return;
-  await SB.from('zones').delete().eq('id', zoneId);
-  toast('Deleted.','success'); await loadZonesList();
-}
-
-/* ═══════════════════════════════════════════════════════════
    5S ZONE TRACKER — ALL WORK RECORDS (admin/manager creation & list)
 ═══════════════════════════════════════════════════════════ */
 async function pageZoneRecords() {
@@ -1512,11 +1499,11 @@ async function loadZoneRecordsList() {
     return;
   }
   el.innerHTML = `<table>
-    <thead><tr><th>Title</th><th>Type</th><th>Zone</th><th>Serial #</th><th>Status</th><th>Due</th><th>Rev</th><th>Actions</th></tr></thead>
+    <thead><tr><th>Title</th><th>Type</th><th>Department / Zone</th><th>Serial #</th><th>Status</th><th>Due</th><th>Rev</th><th>Actions</th></tr></thead>
     <tbody>${data.map(r=>`<tr>
       <td><strong>${r.title}</strong></td>
       <td><span class="chip">${r.work_type}</span></td>
-      <td>${r.zone_name}</td>
+      <td>${r.department_name} / ${r.zone_name}</td>
       <td><code style="font-size:.75rem">${r.serial_number}</code></td>
       <td>${r.is_overdue && r.status!=='approved' ? WORK_STATUS_BADGE.overdue : (WORK_STATUS_BADGE[r.status]||r.status)}</td>
       <td>${fmtDateTime(r.due_at)}</td>
@@ -1526,7 +1513,7 @@ async function loadZoneRecordsList() {
 }
 
 async function openCreateZoneRecord() {
-  const {data: zones} = await SB.from('zones').select('id,name').eq('is_active',true).order('name');
+  const {data: zones} = await SB.from('v_zones').select('*').eq('is_active',true).order('department_name').order('name');
   openModal('New 5S Work Record', `
     <div class="form-group"><label>Work Type</label>
       <select class="form-control" id="nz-type">
@@ -1537,7 +1524,7 @@ async function openCreateZoneRecord() {
     <div class="form-group"><label>Title</label><input class="form-control" id="nz-title" placeholder="e.g. Tool Crib Cleanup"/></div>
     <div class="form-group"><label>Zone</label>
       <select class="form-control" id="nz-zone"><option value="">— Select —</option>
-        ${(zones||[]).map(z=>`<option value="${z.id}">${z.name}</option>`).join('')}</select></div>`,
+        ${(zones||[]).map(z=>`<option value="${z.id}">${z.department_name} / ${z.name}</option>`).join('')}</select></div>`,
     [{label:'Create', action: createZoneRecord, style:'btn-primary'}]
   );
 }
@@ -1580,7 +1567,7 @@ async function openZoneRecord(recordId) {
   openModal(`${rec.work_type} — ${rec.title}`, `
     <div class="flex-row" style="margin-bottom:14px">
       ${rec.is_overdue && rec.status!=='approved' ? WORK_STATUS_BADGE.overdue : (WORK_STATUS_BADGE[rec.status]||rec.status)}
-      <span class="chip">${rec.zone_name}</span>
+      <span class="chip">${rec.department_name} / ${rec.zone_name}</span>
       <span class="chip">Serial: ${rec.serial_number}</span>
       <span class="chip">Rev ${rec.revision_number}</span>
       <span class="chip">Due: ${fmtDateTime(rec.due_at)}</span>
@@ -1754,7 +1741,7 @@ async function pageMyZoneTasks() {
     html += beforeTasks.map(r=>`
       <div class="card">
         <div class="card-header">
-          <div><h2>${r.title}</h2><small style="color:var(--gray-400)">${r.work_type} — ${r.zone_name} — Due ${fmtDateTime(r.due_at)}</small></div>
+          <div><h2>${r.title}</h2><small style="color:var(--gray-400)">${r.work_type} — ${r.department_name} / ${r.zone_name} — Due ${fmtDateTime(r.due_at)}</small></div>
           <button class="btn btn-primary btn-sm" onclick="openZoneRecord('${r.id}')">Open</button>
         </div>
       </div>`).join('');
@@ -1764,7 +1751,7 @@ async function pageMyZoneTasks() {
     html += afterTasks.map(r=>`
       <div class="card">
         <div class="card-header">
-          <div><h2>${r.title}</h2><small style="color:var(--gray-400)">${r.work_type} — ${r.zone_name} — Due ${fmtDateTime(r.due_at)}</small></div>
+          <div><h2>${r.title}</h2><small style="color:var(--gray-400)">${r.work_type} — ${r.department_name} / ${r.zone_name} — Due ${fmtDateTime(r.due_at)}</small></div>
           <div class="flex-row">${r.status==='rejected'?'<span class="badge badge-red">Rework Needed</span>':''}
             <button class="btn btn-primary btn-sm" onclick="openZoneRecord('${r.id}')">Open</button></div>
         </div>
@@ -1816,19 +1803,19 @@ async function pageCeoDashboard() {
   const {data: pendingReview} = await SB.from('v_zone_work_records').select('*').eq('status','awaiting_ceo_review').order('due_at');
   document.getElementById('ceo-review-list').innerHTML = (!pendingReview||pendingReview.length===0)
     ? '<div class="empty-state"><div class="icon">✅</div><p>Nothing waiting on you.</p></div>'
-    : `<table><thead><tr><th>Title</th><th>Type</th><th>Zone</th><th>Due</th><th></th></tr></thead>
+    : `<table><thead><tr><th>Title</th><th>Type</th><th>Department/Zone</th><th>Due</th><th></th></tr></thead>
        <tbody>${pendingReview.map(r=>`<tr>
          <td>${r.title}</td><td><span class="chip">${r.work_type}</span></td>
-         <td>${r.zone_name}</td><td>${fmtDateTime(r.due_at)}</td>
+         <td>${r.department_name} / ${r.zone_name}</td><td>${fmtDateTime(r.due_at)}</td>
          <td><button class="btn btn-primary btn-sm" onclick="openZoneRecord('${r.id}')">Review</button></td>
        </tr>`).join('')}</tbody></table>`;
 
   document.getElementById('ceo-all-list').innerHTML = (!all||all.length===0)
     ? '<div class="empty-state"><p>No records yet.</p></div>'
-    : `<table><thead><tr><th>Title</th><th>Type</th><th>Zone</th><th>Status</th><th>Due</th></tr></thead>
+    : `<table><thead><tr><th>Title</th><th>Type</th><th>Department/Zone</th><th>Status</th><th>Due</th></tr></thead>
        <tbody>${all.sort((a,b)=>new Date(a.due_at)-new Date(b.due_at)).slice(0,100).map(r=>`<tr>
          <td>${r.title}</td><td><span class="chip">${r.work_type}</span></td>
-         <td>${r.zone_name}</td>
+         <td>${r.department_name} / ${r.zone_name}</td>
          <td>${r.is_overdue && r.status!=='approved' ? WORK_STATUS_BADGE.overdue : (WORK_STATUS_BADGE[r.status]||r.status)}</td>
          <td>${fmtDateTime(r.due_at)}</td>
        </tr>`).join('')}</tbody></table>`;
