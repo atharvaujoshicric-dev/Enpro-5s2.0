@@ -1577,10 +1577,11 @@ async function createZoneRecord() {
   if (upErr) { return toast('Record created but photo upload failed: '+upErr.message,'error'); }
   const {data:u} = SB.storage.from('training-photos').getPublicUrl(path);
 
-  await SB.from('zone_work_records').update({
+  const {error: statusErr} = await SB.from('zone_work_records').update({
     before_photo_url: u.publicUrl, before_uploaded_by: SESSION.user.id, before_uploaded_at: ts.toISOString(),
     status: 'awaiting_after'
   }).eq('id', rec.id);
+  if (statusErr) { toast('Photo uploaded but status update failed: '+statusErr.message,'error'); }
 
   await auditLog('ZONE_RECORD_CREATED','zone_work_records', rec.id, {type, title});
   toast('Record started! Zone manager notified for the after-photo.','success');
