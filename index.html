@@ -1478,7 +1478,7 @@ async function pageZoneRecords() {
             <option value="due_asc">Sort: Nearest Deadline</option>
             <option value="created_desc">Sort: Newest First</option>
           </select>
-          <button class="btn btn-primary btn-sm" onclick="openCreateZoneRecord()">+ New Work Record</button>
+          <button class="btn btn-primary btn-sm" onclick="openCreateZoneRecord()">+ Start New Record</button>
         </div>
       </div>
       <div class="card-body table-wrap" id="zwr-list">Loading…</div>
@@ -1513,8 +1513,11 @@ async function loadZoneRecordsList() {
 }
 
 async function openCreateZoneRecord() {
-  const {data: zones} = await SB.from('v_zones').select('*').eq('is_active',true).order('department_name').order('name');
-  openModal('New 5S Work Record', `
+  // Exclude zones where the current user is the Zone Manager (separation of duties)
+  const {data: zones} = await SB.from('v_zones').select('*').eq('is_active',true)
+    .neq('zone_manager_id', SESSION.user.id)
+    .order('department_name').order('name');
+  openModal('Start New 5S Record', `
     <div class="form-group"><label>Work Type</label>
       <select class="form-control" id="nz-type">
         <option value="FPP">FPP — Fixed Point Photo (90-day deadline)</option>
@@ -1524,8 +1527,11 @@ async function openCreateZoneRecord() {
     <div class="form-group"><label>Title</label><input class="form-control" id="nz-title" placeholder="e.g. Tool Crib Cleanup"/></div>
     <div class="form-group"><label>Zone</label>
       <select class="form-control" id="nz-zone"><option value="">— Select —</option>
-        ${(zones||[]).map(z=>`<option value="${z.id}">${z.department_name} / ${z.name}</option>`).join('')}</select></div>`,
-    [{label:'Create', action: createZoneRecord, style:'btn-primary'}]
+        ${(zones||[]).map(z=>`<option value="${z.id}">${z.department_name} / ${z.name}</option>`).join('')}</select></div>
+    <div class="form-group"><label>Before Photo</label>
+      <input type="file" accept="image/*" capture="environment" class="form-control" id="nz-photo"/>
+      <small style="color:var(--gray-400);font-size:.78rem">Serial number, zone, and timestamp will be watermarked onto the photo automatically.</small></div>`,
+    [{label:'Start Record', action: createZoneRecord, style:'btn-primary'}]
   );
 }
 
@@ -1533,7 +1539,10 @@ async function createZoneRecord() {
   const type = document.getElementById('nz-type').value;
   const title = document.getElementById('nz-title').value.trim();
   const zoneId = document.getElementById('nz-zone').value;
+  const photoInput = document.getElementById('nz-photo');
+  const file = photoInput.files[0];
   if (!title || !zoneId) return toast('Fill in all fields.','error');
+  if (!file) return toast('Upload a before photo to start the record.','error');
 
   const deadlineHours = WORK_TYPE_DEADLINE_HOURS[type];
   const dueAt = new Date(Date.now() + deadlineHours*60*60*1000).toISOString();
@@ -1542,6 +1551,20 @@ async function createZoneRecord() {
   const {count} = await SB.from('zone_work_records').select('id',{count:'exact',head:true}).eq('work_type', type);
   const serial = `EP-${type}-${String((count||0)+1).padStart(4,'0')}`;
 
+  const {data: zone} = await SB.from('v_zones').select('*').eq('id', zoneId).single();
+  const ts = new Date();
+
+  let blob;
+  try {
+    blob = await watermarkImage(file, [
+      `Serial: ${serial}`,
+      `Zone: ${zone.department_name} / ${zone.name}`,
+      `${fmtDateTime(ts.toISOString())}`
+    ]);
+  } catch (e) {
+    return toast('Could not process photo: ' + (e.message||e), 'error');
+  }
+
   const {data: rec, error} = await SB.from('zone_work_records').insert({
     zone_id: zoneId, work_type: type, title, serial_number: serial,
     deadline_hours: deadlineHours, due_at: dueAt, status: 'awaiting_before',
@@ -1549,10 +1572,21 @@ async function createZoneRecord() {
   }).select().single();
   if (error) return toast('Error: '+error.message,'error');
 
+  const path = `zone-records/${rec.id}/before-${Date.now()}.jpg`;
+  const {error: upErr} = await SB.storage.from('training-photos').upload(path, blob, {upsert:true, contentType:'image/jpeg'});
+  if (upErr) { return toast('Record created but photo upload failed: '+upErr.message,'error'); }
+  const {data:u} = SB.storage.from('training-photos').getPublicUrl(path);
+
+  await SB.from('zone_work_records').update({
+    before_photo_url: u.publicUrl, before_uploaded_by: SESSION.user.id, before_uploaded_at: ts.toISOString(),
+    status: 'awaiting_after'
+  }).eq('id', rec.id);
+
   await auditLog('ZONE_RECORD_CREATED','zone_work_records', rec.id, {type, title});
-  toast('Work record created!','success');
+  toast('Record started! Zone manager notified for the after-photo.','success');
   closeModal();
-  await loadZoneRecordsList();
+  loadZoneRecordsList().catch(()=>{});
+  pageMyZoneTasks().catch(()=>{});
 }
 
 async function openZoneRecord(recordId) {
@@ -1613,23 +1647,39 @@ async function isUserZoneManagerForZone(zoneId) {
 async function uploadZonePhoto(recordId, kind, input) {
   const file = input.files[0];
   if (!file) return;
+  toast('Processing photo…','info');
+
+  const {data: rec} = await SB.from('v_zone_work_records').select('*').eq('id', recordId).single();
+  const ts = new Date();
+  const watermarkLines = [
+    `Serial: ${rec.serial_number}`,
+    `Zone: ${rec.department_name} / ${rec.zone_name}`,
+    `${fmtDateTime(ts.toISOString())}`
+  ];
+
+  let blob;
+  try {
+    blob = await watermarkImage(file, watermarkLines);
+  } catch (e) {
+    return toast('Could not process photo: ' + (e.message||e), 'error');
+  }
+
   toast('Uploading…','info');
-  const ext = file.name.split('.').pop();
-  const path = `zone-records/${recordId}/${kind}.${ext}`;
-  const {error} = await SB.storage.from('training-photos').upload(path, file, {upsert:true});
+  const path = `zone-records/${recordId}/${kind}-${Date.now()}.jpg`;
+  const {error} = await SB.storage.from('training-photos').upload(path, blob, {upsert:true, contentType:'image/jpeg'});
   if (error) return toast('Upload failed: '+error.message,'error');
   const {data:u} = SB.storage.from('training-photos').getPublicUrl(path);
 
   if (kind === 'before') {
     await SB.from('zone_work_records').update({
-      before_photo_url: u.publicUrl, before_uploaded_by: SESSION.user.id, before_uploaded_at: new Date().toISOString(),
+      before_photo_url: u.publicUrl, before_uploaded_by: SESSION.user.id, before_uploaded_at: ts.toISOString(),
       status: 'awaiting_after'
     }).eq('id', recordId);
     await auditLog('ZONE_BEFORE_UPLOADED','zone_work_records', recordId, {});
     toast('Before photo uploaded! Zone manager notified.','success');
   } else {
     await SB.from('zone_work_records').update({
-      after_photo_url: u.publicUrl, after_uploaded_by: SESSION.user.id, after_uploaded_at: new Date().toISOString(),
+      after_photo_url: u.publicUrl, after_uploaded_by: SESSION.user.id, after_uploaded_at: ts.toISOString(),
       status: 'awaiting_ceo_review'
     }).eq('id', recordId);
     await auditLog('ZONE_AFTER_UPLOADED','zone_work_records', recordId, {});
@@ -1699,8 +1749,15 @@ async function sendCeoPing(recordId) {
 ═══════════════════════════════════════════════════════════ */
 async function pageMyZoneTasks() {
   document.getElementById('main-content').innerHTML = `
-    <div class="page-header"><h1>My Zone Tasks</h1><p>5S work records waiting on you.</p></div>
+    <div class="page-header"><h1>My Zone Tasks</h1><p>Start new 5S records and see tasks waiting on you.</p></div>
     <div id="my-pings"></div>
+    ${can('can_upload_before') ? `
+    <div class="card">
+      <div class="card-body flex-row" style="justify-content:space-between">
+        <div><strong>Start a new 5S record</strong><br><small style="color:var(--gray-400)">Pick a type and zone, upload the before photo.</small></div>
+        <button class="btn btn-primary" onclick="openCreateZoneRecord()">+ Start New Record</button>
+      </div>
+    </div>` : ''}
     <div id="my-zone-list">Loading…</div>`;
 
   // pings
@@ -1716,11 +1773,7 @@ async function pageMyZoneTasks() {
       </div>`).join('');
   } else { pingEl.innerHTML = ''; }
 
-  let beforeTasks = [], afterTasks = [];
-  if (can('can_upload_before')) {
-    const {data} = await SB.from('v_zone_work_records').select('*').eq('status','awaiting_before').order('due_at');
-    beforeTasks = data || [];
-  }
+  let afterTasks = [], myRecent = [];
   if (can('is_zone_manager')) {
     const {data: myZones} = await SB.from('zones').select('id').eq('zone_manager_id', SESSION.user.id);
     const zoneIds = (myZones||[]).map(z=>z.id);
@@ -1729,23 +1782,13 @@ async function pageMyZoneTasks() {
       afterTasks = data || [];
     }
   }
+  if (can('can_upload_before')) {
+    const {data} = await SB.from('v_zone_work_records').select('*').eq('before_uploaded_by', SESSION.user.id).order('created_at',{ascending:false}).limit(10);
+    myRecent = data || [];
+  }
 
   const el = document.getElementById('my-zone-list');
-  if (beforeTasks.length === 0 && afterTasks.length === 0) {
-    el.innerHTML = '<div class="empty-state"><div class="icon">📷</div><p>No zone tasks waiting on you.</p></div>';
-    return;
-  }
   let html = '';
-  if (beforeTasks.length > 0) {
-    html += `<h3 style="font-size:.9rem;margin-bottom:10px">📷 Upload Before Photos</h3>`;
-    html += beforeTasks.map(r=>`
-      <div class="card">
-        <div class="card-header">
-          <div><h2>${r.title}</h2><small style="color:var(--gray-400)">${r.work_type} — ${r.department_name} / ${r.zone_name} — Due ${fmtDateTime(r.due_at)}</small></div>
-          <button class="btn btn-primary btn-sm" onclick="openZoneRecord('${r.id}')">Open</button>
-        </div>
-      </div>`).join('');
-  }
   if (afterTasks.length > 0) {
     html += `<h3 style="font-size:.9rem;margin:16px 0 10px">🔧 Do the Work / Upload After Photos</h3>`;
     html += afterTasks.map(r=>`
@@ -1757,7 +1800,23 @@ async function pageMyZoneTasks() {
         </div>
       </div>`).join('');
   }
-  el.innerHTML = html;
+  if (myRecent.length > 0) {
+    html += `<h3 style="font-size:.9rem;margin:16px 0 10px">📋 My Recent Records</h3>`;
+    html += myRecent.map(r=>`
+      <div class="card">
+        <div class="card-header">
+          <div><h2>${r.title}</h2><small style="color:var(--gray-400)">${r.work_type} — ${r.department_name} / ${r.zone_name}</small></div>
+          <div class="flex-row">
+            ${r.is_overdue && r.status!=='approved' ? WORK_STATUS_BADGE.overdue : (WORK_STATUS_BADGE[r.status]||r.status)}
+            <button class="btn btn-outline btn-sm" onclick="openZoneRecord('${r.id}')">View</button></div>
+        </div>
+      </div>`).join('');
+  }
+  if (!html) {
+    el.innerHTML = '<div class="empty-state"><div class="icon">📷</div><p>No zone tasks waiting on you right now.</p></div>';
+  } else {
+    el.innerHTML = html;
+  }
 }
 
 async function dismissPing(pingId) {
@@ -1853,6 +1912,50 @@ document.getElementById('generic-modal').addEventListener('click', e => {
 /* ═══════════════════════════════
    HELPERS
 ═══════════════════════════════ */
+
+// Burns serial number + zone name + timestamp onto a photo before upload.
+// Returns a Promise<Blob> of the watermarked JPEG.
+function watermarkImage(file, lines) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = (e) => { img.src = e.target.result; };
+    reader.onerror = reject;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+
+      const padding = Math.max(14, Math.round(img.width * 0.014));
+      const fontSize = Math.max(16, Math.round(img.width * 0.022));
+      const lineHeight = fontSize * 14 / 10;
+      ctx.font = `600 ${fontSize}px Segoe UI, Arial, sans-serif`;
+      ctx.textBaseline = 'bottom';
+
+      const boxHeight = (lines.length * lineHeight) + padding * 2;
+      const boxY = canvas.height - boxHeight;
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      ctx.fillRect(0, boxY, canvas.width, boxHeight);
+
+      ctx.fillStyle = '#FFFFFF';
+      ctx.shadowColor = 'rgba(0,0,0,0.8)';
+      ctx.shadowBlur = 3;
+      lines.forEach((line, i) => {
+        const y = canvas.height - padding - (lines.length - 1 - i) * lineHeight;
+        ctx.fillText(line, padding, y);
+      });
+
+      canvas.toBlob((blob) => {
+        if (blob) resolve(blob); else reject(new Error('Canvas toBlob failed'));
+      }, 'image/jpeg', 0.92);
+    };
+    img.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 async function auditLog(action, entityType, entityId, detail) {
   try { await SB.from('audit_log').insert({actor_id:SESSION?.user?.id||null,action,entity_type:entityType,entity_id:entityId||null,detail}); } catch(_){}
 }
